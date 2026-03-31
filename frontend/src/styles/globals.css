@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Backgrounds */
+    --bg-canvas:        #FDFBF7;   /* Off-white/cream — app canvas */
+    --bg-canvas-dim:    #F5F2EC;   /* Slightly darker cream for hover zones */
+
+    /* Surfaces */
+    --surface-navy:     #1A1C3B;   /* NLCF Deep Navy — primary dark cards, sidebar */
+    --surface-gold:     #EBB736;   /* NLCF Gold — hero highlight card, CTAs */
+    --surface-white:    #FFFFFF;   /* Pure white — nested bento cards */
+    --surface-overlay:  rgba(26, 28, 59, 0.6); /* Navy at 60% — modal backdrop */
+
+    /* Text */
+    --text-primary:     #1A1C3B;   /* Navy — headlines and body on light bg */
+    --text-inverse:     #FDFBF7;   /* Cream — text on navy and gold surfaces */
+    --text-secondary:   #64748B;   /* Cool slate — subtext, metadata */
+    --text-muted:       #94A3B8;   /* Lighter slate — placeholders, disabled */
+
+    /* Borders */
+    --border-subtle:    #E2E0D9;   /* 1px border on white cards on cream bg */
+    --border-focus:     #EBB736;   /* Gold ring on focused inputs */
+
+    /* Status */
+    --status-success:   #22C55E;
+    --status-error:     #EF4444;
+    --status-warning:   #F59E0B;
+
+    /* Radius */
+    --radius-card:      22px;
+    --radius-button:    9999px;    /* Pill */
+    --radius-input:     14px;
+    --radius-badge:     9999px;
+    --radius-modal:     24px;
+    --radius-avatar:    9999px;    /* Always fully round */
+  }
+
+  body {
+    @apply bg-[var(--bg-canvas)] text-[var(--text-primary)] font-sans antialiased;
+  }
+}
