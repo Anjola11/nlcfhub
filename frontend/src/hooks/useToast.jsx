@@ -39,9 +39,20 @@ export function ToastProvider({ children }) {
 
 function ToastItem({ toast, onRemove }) {
   const elRef = React.useRef(null);
+  const progressRef = React.useRef(null);
   
   React.useEffect(() => {
-    gsap.fromTo(elRef.current, { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.35, ease: 'back.out(1.4)' });
+    // Premium float and fade in
+    gsap.fromTo(elRef.current, 
+      { y: 30, opacity: 0, scale: 0.98 }, 
+      { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: 'expo.out' }
+    );
+
+    // Progress bar animation
+    gsap.fromTo(progressRef.current,
+      { scaleX: 1 },
+      { scaleX: 0, duration: toast.duration / 1000, ease: 'none', transformOrigin: 'left' }
+    );
 
     const timer = setTimeout(() => {
       close();
@@ -51,41 +62,71 @@ function ToastItem({ toast, onRemove }) {
   }, []);
 
   const close = () => {
-    gsap.to(elRef.current, { x: 80, opacity: 0, duration: 0.25, ease: 'power2.in', onComplete: onRemove });
+    gsap.to(elRef.current, { 
+      opacity: 0, 
+      y: -10,
+      scale: 0.98,
+      duration: 0.3, 
+      ease: 'power2.in', 
+      onComplete: onRemove 
+    });
   };
 
   const variants = {
-    success: "bg-[#F0FDF4] border-l-[4px] border-l-[var(--status-success)] text-[var(--text-primary)]",
-    error: "bg-[#FEF2F2] border-[4px] border-[var(--status-error)] text-[var(--status-error)]",
-    default: "bg-[var(--surface-white)] border-[4px] border-[var(--surface-navy)] text-[var(--text-primary)]"
+    success: "bg-white/90 text-[var(--text-primary)] border-white/40",
+    error: "bg-[var(--surface-navy)]/95 text-white border-white/10",
+    default: "bg-white/90 text-[var(--text-primary)] border-white/40"
+  };
+
+  const progressColors = {
+    success: "bg-[var(--status-success)]",
+    error: "bg-[var(--status-error)]",
+    default: "bg-[var(--surface-gold)]"
   };
 
   const icons = {
-    success: <CheckCircle size={20} className="text-[var(--status-success)] shrink-0" />,
-    error: <AlertCircle size={20} className="text-[var(--status-error)] shrink-0" />,
-    default: <Info size={20} className="text-[var(--surface-navy)] shrink-0" />
+    success: <CheckCircle size={16} className="text-[var(--status-success)]" />,
+    error: <AlertCircle size={16} className="text-[var(--status-error)]" />,
+    default: <Info size={16} className="text-[var(--surface-gold)]" />
   };
 
   return (
     <div 
       ref={elRef}
       className={cn(
-        "rounded-[16px] px-[18px] py-[14px] shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 pointer-events-auto",
+        "relative overflow-hidden backdrop-blur-xl rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.08)] border flex items-center justify-between gap-6 p-[16px] min-w-[320px] pointer-events-auto group",
         variants[toast.type] || variants.default
       )}
     >
-      <div className="flex gap-3 items-center">
-        {icons[toast.type] || icons.default}
-        <span className="font-sans text-[14px] font-medium leading-tight">
-          {toast.message}
-        </span>
+      <div className="flex gap-4 items-center">
+        <div className="w-9 h-9 rounded-xl bg-black/5 flex items-center justify-center shadow-inner">
+          {icons[toast.type] || icons.default}
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <p className="font-sans text-[14px] font-bold tracking-tight leading-tight uppercase opacity-50 text-[10px]">
+            {toast.type || 'Notification'}
+          </p>
+          <p className="font-sans text-[14px] font-semibold tracking-tight">
+            {toast.message}
+          </p>
+        </div>
       </div>
+      
       <button 
         onClick={close}
-        className="text-[var(--text-secondary)] hover:bg-[var(--bg-canvas-dim)] p-1 rounded-full transition-colors shrink-0"
+        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-2 rounded-full transition-all shrink-0 hover:bg-black/5 active:scale-90"
       >
-        <X size={20} />
+        <X size={16} />
       </button>
+
+      {/* Subtle Progress Bar */}
+      <div 
+        ref={progressRef}
+        className={cn(
+          "absolute bottom-0 left-0 right-0 h-[3px] opacity-40",
+          progressColors[toast.type] || progressColors.default
+        )} 
+      />
     </div>
   );
 }

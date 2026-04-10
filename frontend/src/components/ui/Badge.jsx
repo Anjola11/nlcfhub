@@ -31,7 +31,7 @@ export function Badge({ variant = "subgroup", children, className }) {
   const baseClass = variants[variant] || variants.subgroup;
 
   return (
-    <span className={cn("inline-flex items-center justify-center", baseClass, className)}>
+    <span className={cn("inline-flex items-center justify-center shrink-0 whitespace-nowrap", baseClass, className)}>
       {children}
     </span>
   );

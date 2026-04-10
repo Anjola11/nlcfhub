@@ -13,10 +13,22 @@ const MONTHS = [
 ].map((m, i) => ({ label: m, value: String(i + 1).padStart(2, '0') }));
 const DAYS = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: String(i + 1).padStart(2, '0') }));
 const SUBGROUPS = [
-  { label: 'Choir', value: 'Choir' }, { label: 'Ushers', value: 'Ushers' },
-  { label: 'Media', value: 'Media' }, { label: 'Welfare', value: 'Welfare' },
-  { label: 'Workers', value: 'Workers' }, { label: 'Exco', value: 'Exco' },
-  { label: 'General', value: 'General' }
+  { label: 'Choir (Living Voices)', value: 'Choir' }, { label: 'Media/IT Hub', value: 'Media' },
+  { label: 'Ushering Unit', value: 'Ushers' }, { label: 'Prayer Band', value: 'Prayer' },
+  { label: 'Academic Committee', value: 'Academic' }
+];
+const POSTS = [
+  { label: 'President', value: 'President' }, { label: 'Secretary', value: 'Secretary' },
+  { label: 'Financial Secretary', value: 'FinSec' }, { label: 'PRO', value: 'PRO' },
+  { label: 'Welfare Officer', value: 'Welfare' }, { label: 'Choir Coordinator', value: 'ChoirCoord' }
+];
+const TITLES = [
+  { label: 'Mr.', value: 'Mr.' },
+  { label: 'Mrs.', value: 'Mrs.' },
+  { label: 'Miss', value: 'Miss' },
+  { label: 'Dr.', value: 'Dr.' },
+  { label: 'Prof.', value: 'Prof.' },
+  { label: 'Pastor', value: 'Pastor' }
 ];
 
 export default function MemberSelfEditPage() {
@@ -30,10 +42,14 @@ export default function MemberSelfEditPage() {
 
   const [formData, setFormData] = useState({
     firstName: '',
+    lastName: '',
+    title: '',
     phone: '',
-    day: '',
-    month: '',
-    subgroup: ''
+    birthDay: '',
+    birthMonth: '',
+    status: 'student',
+    subgroupIds: [],
+    postIds: []
   });
 
   useEffect(() => {
@@ -44,11 +60,15 @@ export default function MemberSelfEditPage() {
       // Simulate valid token
       setIsValid(true);
       setFormData({
-        firstName: 'Chioma Okafor',
+        firstName: 'Chioma',
+        lastName: 'Okafor',
+        title: '',
         phone: '08087654321',
-        day: '15',
-        month: '04',
-        subgroup: 'Choir'
+        birthDay: '15',
+        birthMonth: '04',
+        status: 'student',
+        subgroupIds: ['Choir'],
+        postIds: ['ChoirCoord']
       });
       setIsValidating(false);
     }, 1200);
@@ -129,12 +149,31 @@ export default function MemberSelfEditPage() {
             </div>
 
             <form onSubmit={onSubmit} className="flex flex-col gap-5">
-              <Input 
-                label="FULL NAME" 
-                value={formData.firstName}
-                onChange={e => setFormData({...formData, firstName: e.target.value})}
-                required
-              />
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <Input 
+                  label="FIRST NAME" 
+                  value={formData.firstName}
+                  onChange={e => setFormData({...formData, firstName: e.target.value})}
+                  required
+                />
+                <Input 
+                  label="LAST NAME" 
+                  value={formData.lastName}
+                  onChange={e => setFormData({...formData, lastName: e.target.value})}
+                  required
+                />
+              </div>
+
+              {formData.status === 'alumni' && (
+                <Select 
+                  label="TITLE"
+                  options={TITLES}
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  required
+                />
+              )}
+
               <Input 
                 label="PHONE NUMBER" 
                 type="tel"
@@ -147,17 +186,68 @@ export default function MemberSelfEditPage() {
               <div className="flex flex-col gap-1.5 w-full">
                 <label className="font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-primary)]">BIRTHDAY</label>
                 <div className="flex gap-3 w-full">
-                  <Select className="w-[40%]" options={DAYS} value={formData.day} onChange={e => setFormData({...formData, day: e.target.value})} />
-                  <Select className="flex-1" options={MONTHS} value={formData.month} onChange={e => setFormData({...formData, month: e.target.value})} />
+                  <Select className="w-[40%]" options={DAYS} value={formData.birthDay} onChange={e => setFormData({...formData, birthDay: e.target.value})} />
+                  <Select className="flex-1" options={MONTHS} value={formData.birthMonth} onChange={e => setFormData({...formData, birthMonth: e.target.value})} />
                 </div>
               </div>
-              <Select 
-                label="SUBGROUP"
-                options={SUBGROUPS}
-                value={formData.subgroup}
-                onChange={e => setFormData({...formData, subgroup: e.target.value})}
-                required
-              />
+
+              {formData.status === 'student' && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-primary)]">
+                      SUBGROUPS (Optional)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SUBGROUPS.map(sg => (
+                        <label key={sg.value} className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-[var(--border-subtle)] text-[var(--surface-gold)] focus:ring-[var(--surface-gold)]"
+                            checked={formData.subgroupIds.includes(sg.value)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                subgroupIds: checked 
+                                  ? [...prev.subgroupIds, sg.value]
+                                  : prev.subgroupIds.filter(id => id !== sg.value)
+                              }));
+                            }}
+                          />
+                          <span className="font-sans text-[14px]">{sg.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-primary)]">
+                      POSTS HELD (Optional)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {POSTS.map(post => (
+                        <label key={post.value} className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-[var(--border-subtle)] text-[var(--surface-gold)] focus:ring-[var(--surface-gold)]"
+                            checked={formData.postIds.includes(post.value)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                postIds: checked 
+                                  ? [...prev.postIds, post.value]
+                                  : prev.postIds.filter(id => id !== post.value)
+                              }));
+                            }}
+                          />
+                          <span className="font-sans text-[14px]">{post.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
               <Button type="submit" className="w-full h-[56px] mt-4" loading={loading}>
                 Save changes
               </Button>

@@ -31,7 +31,7 @@ export const Button = forwardRef(({
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center shrink-0 disabled:opacity-70 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center shrink-0 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed",
         baseClass,
         className
       )}

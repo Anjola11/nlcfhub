@@ -30,7 +30,7 @@ export function Sidebar({ isOpen, onClose }) {
       <div className="h-[72px] flex items-center px-6 justify-between border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-[32px] h-[32px] rounded-full border-2 border-white overflow-hidden bg-white">
-            <img src="https://ui-avatars.com/api/?name=NLCF&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-display font-extrabold text-[18px] text-[var(--text-inverse)] tracking-[-0.01em]">NLCFHUB</span>
         </div>

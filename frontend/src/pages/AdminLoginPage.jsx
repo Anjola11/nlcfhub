@@ -29,10 +29,13 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError('');
     try {
-      await api.login(email, password);
+      const res = await api.adminLogin(email, password);
+      window.localStorage.setItem('hub_token', res.token);
+      window.localStorage.setItem('hub_uid', res.uid);
+      window.localStorage.setItem('hub_role', 'admin');
       navigate('/admin');
     } catch (err) {
-      setError('Incorrect email or password.');
+      setError(err.message || 'Incorrect email or password.');
       gsap.to(formRef.current, { keyframes: { x: [-8, 8, -6, 6, 0] }, duration: 0.4, ease: 'power2.out' });
     } finally {
       setLoading(false);
@@ -47,7 +50,7 @@ export default function AdminLoginPage() {
       >
         <div className="flex flex-col items-center z-10 w-full max-w-[320px]">
           <div className="w-[80px] h-[80px] rounded-full border-[3px] border-white overflow-hidden mb-4 stagger-item bg-white">
-            <img src="https://ui-avatars.com/api/?name=NLCF&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display font-extrabold text-[40px] text-[var(--text-inverse)] tracking-[-0.01em] leading-none mb-2 stagger-item">
             NLCFHUB
@@ -68,11 +71,11 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex justify-center mb-6 w-full">
             <div className="w-[40px] h-[40px] rounded-full overflow-hidden bg-[var(--surface-navy)] border-[2px] border-white">
-              <img src="https://ui-avatars.com/api/?name=NLCF&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+              <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
             </div>
           </div>
           <h2 className="font-display font-bold text-[28px] text-[var(--text-primary)] mb-1">Admin Sign In</h2>
-          <p className="font-sans text-[14px] text-[var(--text-secondary)] mb-[36px]">NLCF Media Team only.</p>
+          <p className="font-sans text-[14px] text-[var(--text-secondary)] mb-[36px]">NLCFOAU Media Team only.</p>
 
           <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-5">
             <Input 

@@ -21,11 +21,20 @@ export default function MemberLoginPage() {
   const formRef = useRef(null);
 
   useEffect(() => {
+    const role = window.localStorage.getItem('hub_role');
+    if (role === 'member') {
+      navigate('/profile');
+      return;
+    } else if (role === 'admin') {
+      navigate('/admin');
+      return;
+    }
+
     gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' });
     if (formRef.current) {
       staggerReveal(formRef.current, '.stagger-item');
     }
-  }, []);
+  }, [navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -34,11 +43,12 @@ export default function MemberLoginPage() {
     
     try {
       const res = await api.login(email, password);
-      // In real app, store token. For dummy:
-      if (res.role === 'admin') {
-        window.localStorage.setItem('hub_role', 'admin');
-        navigate('/admin');
-      } else if (res.role === 'pending') {
+      
+      // Store token and UID for cookie-based auth
+      window.localStorage.setItem('hub_token', res.token);
+      window.localStorage.setItem('hub_uid', res.uid);
+
+      if (!res.account_approved) {
         window.localStorage.setItem('hub_role', 'pending');
         navigate('/pending');
       } else {
@@ -48,9 +58,15 @@ export default function MemberLoginPage() {
     } catch (err) {
       setErrorAnimation(true);
       gsap.to(cardRef.current, { keyframes: { x: [-8, 8, -6, 6, -4, 4, 0] }, duration: 0.45, ease: 'power2.out' });
-      addToast({ message: "Invalid email or password", type: "error" });
+      
+      if (err.message && err.message.toLowerCase().includes('verify')) {
+         addToast({ message: err.message, type: "error" });
+         setTimeout(() => navigate('/verify-otp'), 1200);
+      } else {
+         addToast({ message: err.message || "Invalid email or password", type: "error" });
+      }
     } finally {
-      setTimeout(() => setLoading(false), 300); // give time for animation
+      setTimeout(() => setLoading(false), 300);
     }
   };
 
@@ -64,7 +80,7 @@ export default function MemberLoginPage() {
       >
         <div className="flex flex-col items-center mb-[32px]">
           <div className="w-[48px] h-[48px] rounded-full overflow-hidden mb-4">
-            <img src="https://ui-avatars.com/api/?name=NLCF&background=1A1C3B&color=fff" alt="NLCF" className="w-full h-full object-cover" />
+            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="NLCFOAU" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display font-bold text-[28px] text-[var(--text-primary)] text-center mb-1">
             Welcome back
@@ -87,7 +103,7 @@ export default function MemberLoginPage() {
             />
           </div>
             
-          <div className="stagger-item">
+          <div className="stagger-item flex flex-col gap-1 w-full">
             <Input 
               placeholder="Password" 
               type="password"
@@ -97,6 +113,15 @@ export default function MemberLoginPage() {
               leftNode={<Lock size={18} className="text-[var(--text-muted)]" />}
               error={errorAnimation && !password}
             />
+            <div className="text-right mt-1 w-full">
+               <button 
+                 type="button" 
+                 onClick={() => navigate('/forgot-password')} 
+                 className="font-sans text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--surface-gold)] transition-colors"
+               >
+                 Forgot password?
+               </button>
+            </div>
           </div>
 
           <div className="stagger-item mt-4">

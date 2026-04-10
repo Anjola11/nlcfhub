@@ -115,7 +115,7 @@ export default function AdminMembersPage() {
                     <Avatar size="sm" name={m.full_name} photoUrl={m.photoUrl} />
                   </td>
                   <td className="px-[20px]">
-                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{m.full_name}</div>
+                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{m.title ? `${m.title} ` : ''}{m.full_name}</div>
                   </td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone}</td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-primary)]">{bdayFormat(m.birthday)}</td>

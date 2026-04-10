@@ -8,6 +8,9 @@ import MemberRegistrationPage from './pages/MemberRegistrationPage';
 import MemberLoginPage from './pages/MemberLoginPage';
 import MemberProfilePage from './pages/MemberProfilePage';
 import MemberPendingPage from './pages/MemberPendingPage';
+import OTPVerificationPage from './pages/OTPVerificationPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -22,11 +25,14 @@ export default function App() {
       <BrowserRouter>
         <DemoSwitcher />
         <Routes>
-          <Route path="/" element={<Navigate to="/register" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/register" element={<MemberRegistrationPage />} />
           <Route path="/login" element={<MemberLoginPage />} />
           <Route path="/profile" element={<MemberProfilePage />} />
           <Route path="/pending" element={<MemberPendingPage />} />
+          <Route path="/verify-otp" element={<OTPVerificationPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           
           <Route path="/admin/login" element={<AdminLoginPage />} />
           
