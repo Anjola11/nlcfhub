@@ -1,6 +1,8 @@
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'https://nlcfhub-65e7c825bac4.herokuapp.com').replace(/\/$/, '');
+
+
 
 
 export const api = {
