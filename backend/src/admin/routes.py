@@ -3,6 +3,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from src.admin.services import AdminServices
 from src.admin.schemas import MemberAdminUpdate, MemberResponse
+from src.emailServices.services import EmailServices
 from src.utils.dependencies import require_admin
 from src.utils.logger import logger
 from typing import List
