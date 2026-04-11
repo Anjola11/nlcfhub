@@ -1,11 +1,5 @@
 const BASE_URL = (import.meta.env.VITE_API_URL || 'https://nlcfhub-65e7c825bac4.herokuapp.com').replace(/\/$/, '');
 
-/** Helper for authenticated requests */
-const authHeaders = () => {
-  const token = window.localStorage.getItem('hub_token');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
-
 export const api = {
   // ── Auth ──────────────────────────────────────────────────────────────
   async register(data) {
@@ -95,7 +89,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/auth/me`, {
       method: 'GET',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch profile');
@@ -119,7 +113,7 @@ export const api = {
   async updateProfile(id, data) {
     const res = await fetch(`${BASE_URL}/api/v1/members/${id}/update-details`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
         first_name: data.firstName,
@@ -142,7 +136,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/members/${id}/upload-profile-picture`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
       body: formData
     });
     const json = await res.json();
@@ -156,7 +150,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/members/${id}/upload-birthday-picture`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
       body: formData
     });
     const json = await res.json();
@@ -168,7 +162,7 @@ export const api = {
   async getPendingMembers() {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/pending`, {
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch pending members');
@@ -183,7 +177,7 @@ export const api = {
 
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/approved${qs}`, {
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch members');
@@ -193,7 +187,7 @@ export const api = {
   async getMemberDetails(uid) {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/${uid}`, {
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch member details');
@@ -204,7 +198,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/${uid}/approve`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to approve member');
@@ -215,7 +209,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/${uid}/reject`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to reject member');
@@ -226,7 +220,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/${uid}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to delete member');
@@ -237,7 +231,7 @@ export const api = {
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/${uid}`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     const json = await res.json();
@@ -251,7 +245,7 @@ export const api = {
   async getStats() {
     const res = await fetch(`${BASE_URL}/api/v1/admin/stats`, {
       credentials: 'include',
-      headers: { ...authHeaders() },
+      headers: {},
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch stats');

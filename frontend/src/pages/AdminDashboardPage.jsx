@@ -141,7 +141,24 @@ export default function AdminDashboardPage() {
       ) : (
         <div ref={bentoRef} className="grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-min">
           
-          <div className="bento-cell col-span-12 md:col-span-6 lg:col-span-5 bg-[var(--surface-gold)] rounded-[22px] p-[28px] flex flex-col min-h-[220px] relative overflow-hidden">
+          <div 
+            className="bento-cell col-span-12 md:col-span-6 lg:col-span-5 bg-[var(--surface-gold)] rounded-[22px] p-[28px] flex flex-col min-h-[220px] relative overflow-hidden touch-pan-y"
+            onTouchStart={(e) => {
+              e.currentTarget._touchStartX = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              const startX = e.currentTarget._touchStartX;
+              const endX = e.changedTouches[0].clientX;
+              const diff = startX - endX;
+              if (Math.abs(diff) > 50 && nextBirthdays.length > 1) {
+                if (diff > 0) {
+                  setActiveSlide(prev => (prev < nextBirthdays.length - 1 ? prev + 1 : 0));
+                } else {
+                  setActiveSlide(prev => (prev > 0 ? prev - 1 : nextBirthdays.length - 1));
+                }
+              }
+            }}
+          >
             {members.length > 0 && primaryBirthday ? (
               <>
                 <div className="flex justify-between items-start relative z-10">
@@ -150,7 +167,7 @@ export default function AdminDashboardPage() {
                   </span>
                   <div className="flex items-center gap-2">
                     {nextBirthdays.length > 1 && (
-                      <div className="flex bg-[rgba(26,28,59,0.08)] rounded-full mr-2">
+                      <div className="hidden md:flex bg-[rgba(26,28,59,0.08)] rounded-full mr-2">
                         <button 
                           onClick={() => setActiveSlide(prev => (prev > 0 ? prev - 1 : nextBirthdays.length - 1))}
                           className="p-1.5 rounded-full hover:bg-[rgba(26,28,59,0.15)] transition-colors text-[var(--text-primary)] active:scale-95"

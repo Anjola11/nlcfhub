@@ -4,52 +4,14 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
 import { Button } from '../ui/Button';
+import { api } from '../../lib/api';
+import { AlertTriangle, Check } from 'lucide-react';
 
 const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December'
 ].map((m, i) => ({ label: m, value: String(i + 1).padStart(2, '0') }));
 const DAYS = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1), value: String(i + 1).padStart(2, '0') }));
-const SUBGROUPS = [
-  { label: 'Choir (TKW)', value: 'Choir (TKW)' },
-  { label: 'Media and Editorial', value: 'Media and Editorial' },
-  { label: 'Ushering subgroup', value: 'Ushering subgroup' },
-  { label: 'Prayer subgroup', value: 'Prayer subgroup' },
-  { label: 'Academic subgroup', value: 'Academic subgroup' },
-  { label: 'Sanctuary and Decorating', value: 'Sanctuary and Decorating' },
-  { label: 'Drama subgroup', value: 'Drama subgroup' },
-  { label: 'Evangelism subgroup', value: 'Evangelism subgroup' },
-  { label: 'Organising and Technical', value: 'Organising and Technical' },
-  { label: 'Bible Study subgroup', value: 'Bible Study subgroup' },
-  { label: 'Foundation Bible School (FBS)', value: 'Foundation Bible School (FBS)' },
-  { label: 'Welfare subgroup', value: 'Welfare subgroup' }
-];
-
-const POSTS = [
-  { label: 'President', value: 'President' },
-  { label: 'Vice President', value: 'Vice President' },
-  { label: 'General Secretary', value: 'General Secretary' },
-  { label: 'Workers Coordinator', value: 'Workers Coordinator' },
-  { label: 'Sisters Coordinator', value: 'Sisters Coordinator' },
-  { label: 'Financial Secretary', value: 'Financial Secretary' },
-  { label: 'Treasurer', value: 'Treasurer' },
-  { label: 'Asst. General Secretary', value: 'Asst. General Secretary' },
-  { label: 'Welfare Coordinator', value: 'Welfare Coordinator' },
-  { label: 'Bible Study Coordinator', value: 'Bible Study Coordinator' },
-  { label: 'FBS Principal', value: 'FBS Principal' },
-  { label: 'Evangelism Coordinator', value: 'Evangelism Coordinator' },
-  { label: 'Media and Editorial Head', value: 'Media and Editorial Head' },
-  { label: 'Choir Coordinator', value: 'Choir Coordinator' },
-  { label: 'Sanctuary and Decorating Head', value: 'Sanctuary and Decorating Head' },
-  { label: 'Drama Coordinator', value: 'Drama Coordinator' },
-  { label: 'Prayer Coordinator', value: 'Prayer Coordinator' },
-  { label: 'Academic Head', value: 'Academic Head' },
-  { label: 'Ushering Head and Librarian', value: 'Ushering Head and Librarian' },
-  { label: 'Organising and Technical Head', value: 'Organising and Technical Head' },
-  { label: 'A.R.O 1', value: 'A.R.O 1' },
-  { label: 'A.R.O 2', value: 'A.R.O 2' },
-  { label: 'UJCM Representative', value: 'UJCM Representative' }
-];
 
 const STATUSES = [
   { label: 'Student', value: 'student' },
@@ -68,6 +30,14 @@ const TITLES = [
 export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit }) {
   const isEdit = !!member;
   
+  // Live metadata from the backend
+  const [subgroupOptions, setSubgroupOptions] = useState([]);
+  const [postOptions, setPostOptions] = useState([]);
+  
+  // Confirmation dialog state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [changes, setChanges] = useState([]);
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -81,9 +51,28 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
     isActiveStatus: true
   });
 
+  // Original data snapshot (for change comparison)
+  const [originalData, setOriginalData] = useState(null);
+
+  // Fetch live subgroup/post metadata when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    api.getSubgroups().then(res => {
+      if (res.success) setSubgroupOptions(res.data.map(s => ({ label: s.name, value: s.id, name: s.name })));
+    }).catch(console.error);
+    api.getPosts().then(res => {
+      if (res.success) setPostOptions(res.data.map(p => ({ label: p.name, value: p.id, name: p.name })));
+    }).catch(console.error);
+  }, [isOpen]);
+
+  // Populate form when editing
   useEffect(() => {
     if (isOpen && member) {
-      setFormData({
+      // Map the member's current subgroups/posts to their UUID ids
+      const currentSubgroupIds = member.subgroups?.map(s => s.id) || [];
+      const currentPostIds = member.posts_held?.map(p => p.id) || [];
+
+      const data = {
         firstName: member.first_name || '',
         lastName: member.last_name || '',
         phone: member.phone_number || '',
@@ -91,12 +80,15 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
         month: member.birth_month ? String(member.birth_month).padStart(2, '0') : '',
         status: member.status || 'student',
         title: member.title || '',
-        subgroupIds: member.subgroup_ids || [],
-        postIds: member.post_ids || [],
+        subgroupIds: currentSubgroupIds,
+        postIds: currentPostIds,
         isActiveStatus: member.account_approved !== false
-      });
+      };
+
+      setFormData(data);
+      setOriginalData({ ...data, subgroupIds: [...currentSubgroupIds], postIds: [...currentPostIds] });
     } else if (isOpen && !member) {
-      setFormData({
+      const empty = {
         firstName: '',
         lastName: '',
         phone: '',
@@ -107,18 +99,155 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
         subgroupIds: [],
         postIds: [],
         isActiveStatus: true
-      });
+      };
+      setFormData(empty);
+      setOriginalData(null);
     }
+    setShowConfirm(false);
   }, [isOpen, member]);
 
-  const handleSubmit = (e) => {
+  // When status changes to alumni, clear subgroups and posts
+  const handleStatusChange = (newStatus) => {
+    if (newStatus === 'alumni') {
+      setFormData(prev => ({
+        ...prev,
+        status: newStatus,
+        subgroupIds: [],
+        postIds: [],
+        title: prev.title || ''
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, status: newStatus, title: '' }));
+    }
+  };
+
+  // Build a list of human-readable changes for the confirmation dialog
+  const computeChanges = () => {
+    if (!originalData) return [{ label: 'Action', value: 'Create new member' }];
+    
+    const diff = [];
+
+    if (formData.firstName !== originalData.firstName) 
+      diff.push({ label: 'First Name', from: originalData.firstName, to: formData.firstName });
+    if (formData.lastName !== originalData.lastName) 
+      diff.push({ label: 'Last Name', from: originalData.lastName, to: formData.lastName });
+    if (formData.phone !== originalData.phone) 
+      diff.push({ label: 'Phone', from: originalData.phone || '—', to: formData.phone || '—' });
+    if (formData.day !== originalData.day || formData.month !== originalData.month) 
+      diff.push({ label: 'Birthday', from: `${originalData.day}/${originalData.month}`, to: `${formData.day}/${formData.month}` });
+    if (formData.status !== originalData.status) 
+      diff.push({ label: 'Status', from: originalData.status, to: formData.status });
+    if (formData.title !== originalData.title) 
+      diff.push({ label: 'Title', from: originalData.title || '—', to: formData.title || '—' });
+
+    // Compare subgroups
+    const origSg = new Set(originalData.subgroupIds);
+    const newSg = new Set(formData.subgroupIds);
+    const addedSg = formData.subgroupIds.filter(id => !origSg.has(id));
+    const removedSg = originalData.subgroupIds.filter(id => !newSg.has(id));
+    if (addedSg.length > 0 || removedSg.length > 0) {
+      const getName = (id) => subgroupOptions.find(s => s.value === id)?.name || id;
+      const parts = [];
+      if (addedSg.length) parts.push(`Added: ${addedSg.map(getName).join(', ')}`);
+      if (removedSg.length) parts.push(`Removed: ${removedSg.map(getName).join(', ')}`);
+      diff.push({ label: 'Subgroups', value: parts.join(' · ') });
+    }
+
+    // Compare posts
+    const origP = new Set(originalData.postIds);
+    const newP = new Set(formData.postIds);
+    const addedP = formData.postIds.filter(id => !origP.has(id));
+    const removedP = originalData.postIds.filter(id => !newP.has(id));
+    if (addedP.length > 0 || removedP.length > 0) {
+      const getName = (id) => postOptions.find(p => p.value === id)?.name || id;
+      const parts = [];
+      if (addedP.length) parts.push(`Added: ${addedP.map(getName).join(', ')}`);
+      if (removedP.length) parts.push(`Removed: ${removedP.map(getName).join(', ')}`);
+      diff.push({ label: 'Posts Held', value: parts.join(' · ') });
+    }
+
+    if (formData.isActiveStatus !== originalData.isActiveStatus)
+      diff.push({ label: 'Profile Status', from: originalData.isActiveStatus ? 'Active' : 'Inactive', to: formData.isActiveStatus ? 'Active' : 'Inactive' });
+
+    return diff.length > 0 ? diff : [{ label: 'No changes', value: 'Nothing was modified' }];
+  };
+
+  // Shows the confirmation dialog before submitting
+  const handleReviewChanges = (e) => {
     e.preventDefault();
+    const computed = computeChanges();
+    setChanges(computed);
+    setShowConfirm(true);
+  };
+
+  // Actually sends the data
+  const handleConfirm = () => {
+    setShowConfirm(false);
     if (onSubmit) {
-      onSubmit(formData);
+      // Build the payload to match MemberAdminUpdate schema
+      const payload = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone_number: formData.phone || undefined,
+        birth_day: formData.day ? parseInt(formData.day) : undefined,
+        birth_month: formData.month ? parseInt(formData.month) : undefined,
+        status: formData.status,
+        title: formData.status === 'alumni' ? (formData.title || undefined) : undefined,
+        subgroup_ids: formData.status === 'alumni' ? [] : formData.subgroupIds,
+        post_ids: formData.status === 'alumni' ? [] : formData.postIds,
+        account_approved: formData.isActiveStatus,
+      };
+      onSubmit(payload);
     }
     onClose();
   };
 
+  // ── Confirmation view ──────────────────────────────────────────────
+  if (showConfirm) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setShowConfirm(false)}
+        title="Confirm Changes"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowConfirm(false)}>Go Back</Button>
+            <Button onClick={handleConfirm}>
+              <Check size={16} className="mr-1.5" /> Confirm
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3 bg-[rgba(235,183,54,0.08)] border border-[rgba(235,183,54,0.3)] rounded-[14px] p-4">
+            <AlertTriangle size={20} className="text-[var(--surface-gold)] shrink-0 mt-0.5" />
+            <p className="font-sans text-[13px] text-[var(--text-primary)]">
+              Please review the following changes before applying them to <strong>{member?.first_name} {member?.last_name}</strong>.
+            </p>
+          </div>
+
+          <div className="flex flex-col divide-y divide-[var(--border-subtle)]">
+            {changes.map((c, i) => (
+              <div key={i} className="py-3 flex flex-col">
+                <span className="font-mono text-[11px] uppercase text-[var(--text-secondary)] tracking-[0.06em] mb-1">{c.label}</span>
+                {c.from !== undefined ? (
+                  <div className="flex items-center gap-2 text-[14px] font-sans">
+                    <span className="text-[var(--status-error)] line-through">{c.from}</span>
+                    <span className="text-[var(--text-muted)]">→</span>
+                    <span className="text-[var(--status-success)] font-semibold">{c.to}</span>
+                  </div>
+                ) : (
+                  <span className="font-sans text-[14px] text-[var(--text-primary)]">{c.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // ── Main form view ─────────────────────────────────────────────────
   return (
     <Modal 
       isOpen={isOpen} 
@@ -127,11 +256,11 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? "Save Changes" : "Add Member"}</Button>
+          <Button onClick={handleReviewChanges}>{isEdit ? "Review Changes" : "Add Member"}</Button>
         </>
       }
     >
-      <form id="member-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form id="member-form" onSubmit={handleReviewChanges} className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3 w-full">
           <Input 
             label="FIRST NAME" 
@@ -182,7 +311,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
             label="STATUS"
             options={STATUSES}
             value={formData.status}
-            onChange={e => setFormData({...formData, status: e.target.value})}
+            onChange={e => handleStatusChange(e.target.value)}
             required
           />
         </div>
@@ -206,7 +335,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
                 SUBGROUPS (Optional)
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {SUBGROUPS.map(sg => (
+                {subgroupOptions.map(sg => (
                   <label key={sg.value} className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -233,7 +362,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
                 POSTS HELD (Optional)
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {POSTS.map(post => (
+                {postOptions.map(post => (
                   <label key={post.value} className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 

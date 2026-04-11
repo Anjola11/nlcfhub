@@ -18,6 +18,22 @@ admin_router = APIRouter(
 admin_services = AdminServices()
 
 
+def serialize_member(member):
+    """
+    SQLModel Relationship() fields are excluded from default JSON
+    serialization. This helper manually includes subgroups and posts_held
+    so the frontend receives them.
+    """
+    data = member.model_dump()
+    data["subgroups"] = [
+        {"id": str(s.id), "name": s.name} for s in (member.subgroups or [])
+    ]
+    data["posts_held"] = [
+        {"id": str(p.id), "name": p.name} for p in (member.posts_held or [])
+    ]
+    return data
+
+
 # ── Public Metadata ──────────────────────────────────────────────────────────
 
 @meta_router.get('/posts', status_code=status.HTTP_200_OK)
@@ -45,7 +61,7 @@ async def get_subgroups(session: AsyncSession = Depends(get_session)):
 async def get_pending_members(session: AsyncSession = Depends(get_session)):
     logger.info("Admin fetching pending members")
     members = await admin_services.get_all_pending_members(session)
-    return {"success": True, "data": members}
+    return {"success": True, "data": [serialize_member(m) for m in members]}
 
 
 @admin_router.get('/members/approved', status_code=status.HTTP_200_OK)
@@ -58,7 +74,7 @@ async def get_approved_members(
     members = await admin_services.get_all_approved_members(
         session, status_filter=status_filter, birth_month=birth_month
     )
-    return {"success": True, "data": members}
+    return {"success": True, "data": [serialize_member(m) for m in members]}
 
 
 @admin_router.get('/members/{member_uid}', status_code=status.HTTP_200_OK)
@@ -67,7 +83,7 @@ async def get_member_details(
     session: AsyncSession = Depends(get_session)
 ):
     member = await admin_services.get_member_details(member_uid, session)
-    return {"success": True, "data": member}
+    return {"success": True, "data": serialize_member(member)}
 
 
 @admin_router.patch('/members/{member_uid}/approve', status_code=status.HTTP_200_OK)
@@ -105,7 +121,7 @@ async def edit_member(
 ):
     logger.info(f"Admin editing member {member_uid}")
     member = await admin_services.edit_member_details(member_uid, member_data, session)
-    return {"success": True, "message": "Member updated", "data": member}
+    return {"success": True, "message": "Member updated", "data": serialize_member(member)}
 
 
 @admin_router.get('/stats', status_code=status.HTTP_200_OK)
