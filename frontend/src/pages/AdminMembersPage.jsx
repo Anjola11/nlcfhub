@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Pencil, Copy, UserX, ChevronLeft, ChevronRight, ChevronDown, Users } from 'lucide-react';
 import { AddEditMemberModal } from '../components/features/AddEditMemberModal';
 import { CSVImportModal } from '../components/features/CSVImportModal';
+import { Button } from '../components/ui/Button';
 import { useToast } from '../hooks/useToast';
 import { gsap } from 'gsap';
 import { flashGold } from '../lib/gsap';
@@ -23,11 +24,20 @@ export default function AdminMembersPage() {
 
   const bulkBarRef = useRef(null);
   
-  useEffect(() => {
-    api.getActiveMembers().then(data => {
+  const loadMembers = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getApprovedMembers();
       setMembers(data);
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to load members', type: 'error' });
+    } finally {
       setLoading(false);
-    });
+    }
+  };
+
+  useEffect(() => {
+    loadMembers();
   }, []);
 
   useEffect(() => {
@@ -37,15 +47,57 @@ export default function AdminMembersPage() {
   }, [selectedRows.length]);
 
   const toggleSelectAll = (e) => {
-    if (e.target.checked) setSelectedRows(members.map(m => m.id));
+    if (e.target.checked) setSelectedRows(members.map(m => m.uid));
     else setSelectedRows([]);
   };
 
-  const toggleSelectRow = (id) => {
-    setSelectedRows(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleSelectRow = (uid) => {
+    setSelectedRows(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]);
   };
 
-  const bdayFormat = (date) => new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const getMemberName = (m) => m.fullname || m.full_name || `${m.first_name} ${m.last_name}`;
+  const getSubgroups = (m) => m.subgroups?.map(s => s.name).join(', ') || '—';
+  const getPosts = (m) => m.posts_held?.map(p => p.name).join(', ') || '—';
+
+  const bdayFormat = (month, day) => {
+    if (!month || !day) return '—';
+    const date = new Date(2000, month - 1, day);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  };
+
+  const handleDeleteMember = async (uid, name) => {
+    try {
+      await api.deleteMember(uid);
+      addToast({ message: `${name} has been removed`, type: 'success' });
+      loadMembers();
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to delete member', type: 'error' });
+    }
+  };
+
+  const handleEditSubmit = async (data) => {
+    try {
+      if (editingMember) {
+        await api.editMember(editingMember.uid, data);
+        addToast({ message: 'Member updated successfully', type: 'success' });
+      } else {
+        // Add member is not yet wired (no backend route for admin-create)
+        addToast({ message: 'Member added (UI only — backend route pending)', type: 'success' });
+      }
+      loadMembers();
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to save', type: 'error' });
+    }
+  };
+
+  // Client-side search filter
+  const filtered = members.filter(m => {
+    if (!searchQuery) return true;
+    const name = getMemberName(m).toLowerCase();
+    const email = (m.email || '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+    return name.includes(q) || email.includes(q);
+  });
 
   return (
     <div className="relative">
@@ -62,7 +114,7 @@ export default function AdminMembersPage() {
             {selectedRows.length} member(s) selected
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-[var(--status-error)] hover:opacity-80 font-sans text-[12px] font-semibold transition-opacity" onClick={() => addToast({message:"Deactivated selected members", type:"success"})}>
+            <button className="text-[var(--status-error)] hover:opacity-80 font-sans text-[12px] font-semibold transition-opacity" onClick={() => addToast({message:"Bulk actions coming soon", type:"success"})}>
               Deactivate selected
             </button>
             <button className="text-white/60 hover:text-white font-sans text-[12px] font-semibold transition-colors" onClick={() => setSelectedRows([])}>
@@ -79,7 +131,7 @@ export default function AdminMembersPage() {
               <tr className="bg-[var(--bg-canvas)] border-b border-[var(--border-subtle)]">
                 <th className="px-[20px] py-[12px] w-[60px]">
                   <input type="checkbox" className="w-[16px] h-[16px] accent-[var(--surface-gold)] rounded-[4px]" 
-                         checked={selectedRows.length === members.length && members.length > 0} 
+                         checked={selectedRows.length === filtered.length && filtered.length > 0} 
                          onChange={toggleSelectAll} />
                 </th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)] w-[70px]">Photo</th>
@@ -88,14 +140,13 @@ export default function AdminMembersPage() {
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Birthday</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Subgroup</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Type</th>
-                <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Status</th>
                 <th className="px-[20px] py-[12px] w-[140px]"></th>
               </tr>
             </thead>
             <tbody>
-              {members.length === 0 && !loading ? (
+              {filtered.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={9} className="py-16">
+                  <td colSpan={8} className="py-16">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
                       <Users size={64} className="mb-4 text-[var(--border-subtle)]" />
                       <h3 className="font-display font-medium text-[20px] text-[var(--text-secondary)] mb-1">No members yet</h3>
@@ -104,29 +155,27 @@ export default function AdminMembersPage() {
                     </div>
                   </td>
                 </tr>
-              ) : members.map((m) => (
-                <tr key={m.id} className={`h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors ${selectedRows.includes(m.id) ? 'bg-[rgba(235,183,54,0.08)] border-l-[3px] border-l-[var(--surface-gold)]' : 'border-l-[3px] border-l-transparent'}`}>
+              ) : filtered.map((m) => (
+                <tr key={m.uid} className={`h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors ${selectedRows.includes(m.uid) ? 'bg-[rgba(235,183,54,0.08)] border-l-[3px] border-l-[var(--surface-gold)]' : 'border-l-[3px] border-l-transparent'}`}>
                   <td className="px-[20px]">
                     <input type="checkbox" className="w-[16px] h-[16px] accent-[var(--surface-gold)] rounded-[4px]" 
-                           checked={selectedRows.includes(m.id)} 
-                           onChange={() => toggleSelectRow(m.id)} />
+                           checked={selectedRows.includes(m.uid)} 
+                           onChange={() => toggleSelectRow(m.uid)} />
                   </td>
                   <td className="px-[20px]">
-                    <Avatar size="sm" name={m.full_name} photoUrl={m.photoUrl} />
+                    <Avatar size="sm" name={getMemberName(m)} photoUrl={m.profile_picture_url} />
                   </td>
                   <td className="px-[20px]">
-                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{m.title ? `${m.title} ` : ''}{m.full_name}</div>
+                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{m.title ? `${m.title} ` : ''}{getMemberName(m)}</div>
+                    <div className="font-sans text-[12px] text-[var(--text-secondary)]">{m.email}</div>
                   </td>
-                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone}</td>
-                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-primary)]">{bdayFormat(m.birthday)}</td>
+                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone_number || '—'}</td>
+                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-primary)]">{bdayFormat(m.birth_month, m.birth_day)}</td>
                   <td className="px-[20px]">
-                    <Badge variant="subgroup">{m.subgroup}</Badge>
-                  </td>
-                  <td className="px-[20px]">
-                    <Badge variant={m.member_type === 'active' ? 'member-type-active' : 'member-type-alumni'} className="capitalize">{m.member_type}</Badge>
+                    <Badge variant="subgroup">{getSubgroups(m)}</Badge>
                   </td>
                   <td className="px-[20px]">
-                    <Badge variant={m.status === 'active' ? 'status-active' : 'status-inactive'} />
+                    <Badge variant={m.status === 'student' ? 'member-type-active' : 'member-type-alumni'} className="capitalize">{m.status}</Badge>
                   </td>
                   <td className="px-[20px]">
                     <div className="flex items-center gap-1">
@@ -134,13 +183,13 @@ export default function AdminMembersPage() {
                         <Pencil size={16} />
                       </button>
                       <button className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-canvas-dim)] transition-all" onClick={(e) => {
-                        navigator.clipboard.writeText(`https://nlcfhub.org/me/${m.id}?token=abc`);
+                        navigator.clipboard.writeText(m.email || '');
                         flashGold(e.currentTarget);
-                        addToast({message: "Edit link copied", type: "success"});
+                        addToast({message: "Email copied", type: "success"});
                       }}>
                         <Copy size={16} />
                       </button>
-                      <button className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--status-error)] hover:bg-[#FEF2F2] transition-colors" onClick={() => addToast({message: "Member deactivated", type: "success"})}>
+                      <button className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--status-error)] hover:bg-[#FEF2F2] transition-colors" onClick={() => handleDeleteMember(m.uid, getMemberName(m))}>
                         <UserX size={16} />
                       </button>
                     </div>
@@ -152,7 +201,7 @@ export default function AdminMembersPage() {
         </div>
 
         <div className="flex items-center justify-between px-[20px] py-[16px] border-t border-[var(--border-subtle)] bg-[var(--surface-white)]">
-          <div className="font-sans text-[12px] text-[var(--text-secondary)]">Showing 1–{members.length} of {members.length} members</div>
+          <div className="font-sans text-[12px] text-[var(--text-secondary)]">Showing 1–{filtered.length} of {filtered.length} members</div>
           <div className="flex items-center gap-1">
             <button className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center text-[var(--text-secondary)] disabled:opacity-50" disabled>
               <ChevronLeft size={16} />
@@ -171,9 +220,7 @@ export default function AdminMembersPage() {
         isOpen={isAddEditModalOpen} 
         onClose={() => setAddEditModalOpen(false)} 
         member={editingMember}
-        onSubmit={(data) => {
-          addToast({ message: `Member ${editingMember ? 'updated' : 'added'} successfully`, type: 'success' });
-        }}
+        onSubmit={handleEditSubmit}
       />
       <CSVImportModal isOpen={isCSVModalOpen} onClose={() => setCSVModalOpen(false)} />
     </div>

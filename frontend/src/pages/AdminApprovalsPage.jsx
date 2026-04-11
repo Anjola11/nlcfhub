@@ -13,38 +13,63 @@ export default function AdminApprovalsPage() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [actionLoading, setActionLoading] = useState(null); // uid of member being acted on
   const { addToast } = useToast();
   
   const tableRef = useRef(null);
 
-  const loadPending = () => {
+  const loadPending = async () => {
     setLoading(true);
-    api.getPendingMembers().then(data => {
+    try {
+      const data = await api.getPendingMembers();
       setPending(data);
-      setLoading(false);
       setTimeout(() => {
         if (tableRef.current) staggerReveal(tableRef.current, 'tbody tr');
       }, 50);
-    });
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to load pending members', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadPending();
   }, []);
 
-  const handleApprove = async (id, name) => {
-    await api.approveMember(id);
-    addToast({ message: `Approved ${name}'s registration`, type: 'success' });
-    loadPending();
+  const handleApprove = async (uid, name) => {
+    setActionLoading(uid);
+    try {
+      await api.approveMember(uid);
+      addToast({ message: `Approved ${name}'s registration`, type: 'success' });
+      loadPending();
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to approve', type: 'error' });
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleReject = async (id, name) => {
-    await api.denyMember(id);
-    addToast({ message: `Rejected ${name}'s registration`, type: 'success' });
-    loadPending();
+  const handleReject = async (uid, name) => {
+    setActionLoading(uid);
+    try {
+      await api.rejectMember(uid);
+      addToast({ message: `Rejected ${name}'s registration`, type: 'success' });
+      loadPending();
+    } catch (err) {
+      addToast({ message: err.message || 'Failed to reject', type: 'error' });
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const filtered = pending.filter(p => p.full_name.toLowerCase().includes(search.toLowerCase()) || p.email?.toLowerCase().includes(search.toLowerCase()));
+  const filtered = pending.filter(p => {
+    const name = p.fullname || p.full_name || `${p.first_name} ${p.last_name}`;
+    return name.toLowerCase().includes(search.toLowerCase()) || p.email?.toLowerCase().includes(search.toLowerCase());
+  });
+
+  const getMemberName = (p) => p.fullname || p.full_name || `${p.first_name} ${p.last_name}`;
+  const getSubgroups = (p) => p.subgroups?.map(s => s.name).join(', ') || '—';
 
   return (
     <div className="relative">
@@ -89,25 +114,38 @@ export default function AdminApprovalsPage() {
                   </td>
                 </tr>
               ) : filtered.map((p) => (
-                <tr key={p.id} className="h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors border-l-[3px] border-l-transparent hover:border-l-[var(--surface-navy)]">
+                <tr key={p.uid} className="h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors border-l-[3px] border-l-transparent hover:border-l-[var(--surface-navy)]">
                    <td className="px-[20px]">
-                    <Avatar size="sm" name={p.full_name} photoUrl={p.photoUrl} />
+                    <Avatar size="sm" name={getMemberName(p)} photoUrl={p.profile_picture_url} />
                   </td>
                   <td className="px-[20px]">
-                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{p.full_name}</div>
+                    <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{getMemberName(p)}</div>
                     <div className="font-sans text-[12px] text-[var(--text-secondary)]">{p.email}</div>
                   </td>
                   <td className="px-[20px]">
-                    <Badge variant="subgroup">{p.subgroup}</Badge>
+                    <Badge variant="subgroup">{getSubgroups(p)}</Badge>
                   </td>
-                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{p.phone}</td>
-                  <td className="px-[20px] font-sans text-[13px] text-[var(--text-secondary)]">Today</td>
+                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{p.phone_number || '—'}</td>
+                  <td className="px-[20px] font-sans text-[13px] text-[var(--text-secondary)]">
+                    {p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
+                  </td>
                   <td className="px-[20px] text-right">
                     <div className="flex items-center justify-end gap-2">
-                       <Button variant="ghost" className="text-[var(--status-error)] hover:bg-[#FEF2F2] px-[12px] h-[36px]" onClick={() => handleReject(p.id, p.first_name)}>
+                       <Button 
+                         variant="ghost" 
+                         className="text-[var(--status-error)] hover:bg-[#FEF2F2] px-[12px] h-[36px]" 
+                         onClick={() => handleReject(p.uid, getMemberName(p))}
+                         loading={actionLoading === p.uid}
+                         disabled={!!actionLoading}
+                       >
                          <XCircle size={14} className="mr-1.5" /> Reject
                        </Button>
-                       <Button className="px-[16px] h-[36px]" onClick={() => handleApprove(p.id, p.first_name)}>
+                       <Button 
+                         className="px-[16px] h-[36px]" 
+                         onClick={() => handleApprove(p.uid, getMemberName(p))}
+                         loading={actionLoading === p.uid}
+                         disabled={!!actionLoading}
+                       >
                          <UserCheck size={14} className="mr-1.5" /> Approve
                        </Button>
                     </div>

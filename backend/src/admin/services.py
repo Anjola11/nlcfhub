@@ -1,32 +1,188 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, func
+from sqlalchemy.orm import selectinload
 from src.admin.models import Post, Subgroup
 from fastapi import HTTPException, status
+from src.auth.models import Member, Status
+from src.admin.schemas import MemberAdminUpdate
 from src.utils.logger import logger
+from uuid import UUID
+
 
 class AdminServices:
-    async def get_all_posts(self, session: AsyncSession):
-        try:
-            statement = select(Post)
-            result = await session.exec(statement)
-            posts = result.all()
-            return [p.model_dump() for p in posts]
-        except Exception as e:
-            logger.error(f"Error retrieving posts in AdminServices: {e}", exc_info=True)
+
+    async def _get_member_or_404(self, member_uid: UUID, session: AsyncSession) -> Member:
+        member = await session.get(Member, member_uid)
+        if not member:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve posts"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Member with uid {member_uid} not found",
+            )
+        return member
+
+    async def get_all_pending_members(self, session: AsyncSession):
+        statement = (
+            select(Member)
+            .where(Member.account_approved == False)
+            .options(
+                selectinload(Member.posts_held),
+                selectinload(Member.subgroups)
+            )
+        )
+        result = await session.exec(statement)
+        return result.all()
+
+    async def get_all_approved_members(
+        self,
+        session: AsyncSession,
+        status_filter: str = None,
+        birth_month: int = None
+    ):
+        statement = (
+            select(Member)
+            .where(Member.account_approved == True)
+            .options(
+                selectinload(Member.posts_held),
+                selectinload(Member.subgroups)
+            )
+        )
+
+        if status_filter:
+            statement = statement.where(Member.status == status_filter)
+        if birth_month:
+            statement = statement.where(Member.birth_month == birth_month)
+
+        result = await session.exec(statement)
+        return result.all()
+
+    async def approve_member(self, member_uid: UUID, session: AsyncSession):
+        member = await self._get_member_or_404(member_uid, session)
+        member.account_approved = True
+        session.add(member)
+        await session.commit()
+        return {"success": True, "message": "Member approved successfully"}
+
+    async def reject_member(self, member_uid: UUID, session: AsyncSession):
+        member = await self._get_member_or_404(member_uid, session)
+        await session.delete(member)
+        await session.commit()
+        return {"success": True, "message": "Member rejected and removed successfully"}
+
+    async def delete_member(self, member_uid: UUID, session: AsyncSession):
+        member = await self._get_member_or_404(member_uid, session)
+        await session.delete(member)
+        await session.commit()
+        return {"success": True, "message": "Member deleted successfully"}
+
+    async def get_member_details(self, member_uid: UUID, session: AsyncSession):
+        statement = (
+            select(Member)
+            .where(Member.uid == member_uid)
+            .options(
+                selectinload(Member.posts_held),
+                selectinload(Member.subgroups)
+            )
+        )
+        result = await session.exec(statement)
+        member = result.first()
+        if not member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Member with uid {member_uid} not found",
+            )
+        return member
+
+    async def edit_member_details(
+        self,
+        member_uid: UUID,
+        member_data: MemberAdminUpdate,
+        session: AsyncSession
+    ):
+        # Must eager-load relationships so we can overwrite them
+        statement = (
+            select(Member)
+            .where(Member.uid == member_uid)
+            .options(
+                selectinload(Member.posts_held),
+                selectinload(Member.subgroups)
+            )
+        )
+        result = await session.exec(statement)
+        member = result.first()
+
+        if not member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Member not found"
             )
 
+        # 1. Update scalar fields (names, email, etc.)
+        #    Exclude relationship IDs — sqlmodel_update would silently ignore them
+        update_dict = member_data.model_dump(
+            exclude_unset=True,
+            exclude={"post_ids", "subgroup_ids"}
+        )
+        member.sqlmodel_update(update_dict)
+
+        # 2. Explicitly handle Posts relationship update
+        if member_data.post_ids is not None:
+            if not member_data.post_ids:
+                member.posts_held = []  # Admin cleared all posts
+            else:
+                post_stmt = select(Post).where(Post.id.in_(member_data.post_ids))
+                posts = (await session.exec(post_stmt)).all()
+                member.posts_held = list(posts)
+
+        # 3. Explicitly handle Subgroups relationship update
+        if member_data.subgroup_ids is not None:
+            if not member_data.subgroup_ids:
+                member.subgroups = []  # Admin cleared all subgroups
+            else:
+                sub_stmt = select(Subgroup).where(Subgroup.id.in_(member_data.subgroup_ids))
+                subgroups = (await session.exec(sub_stmt)).all()
+                member.subgroups = list(subgroups)
+
+        session.add(member)
+        await session.commit()
+        await session.refresh(member)
+        return member
+
+    async def get_all_posts(self, session: AsyncSession):
+        statement = select(Post)
+        result = await session.exec(statement)
+        return result.all()
+
     async def get_all_subgroups(self, session: AsyncSession):
-        try:
-            statement = select(Subgroup)
-            result = await session.exec(statement)
-            subgroups = result.all()
-            return [s.model_dump() for s in subgroups]
-        except Exception as e:
-            logger.error(f"Error retrieving subgroups in AdminServices: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve subgroups"
-            )
+        statement = select(Subgroup)
+        result = await session.exec(statement)
+        return result.all()
+
+    async def get_dashboard_stats(self, session: AsyncSession):
+        """
+        Executes lightweight aggregate queries to get counts without loading
+        member objects into application memory.
+        """
+        stmt_pending = select(func.count(Member.uid)).where(Member.account_approved == False)
+        pending_count = (await session.exec(stmt_pending)).one()
+
+        stmt_approved = select(func.count(Member.uid)).where(Member.account_approved == True)
+        approved_count = (await session.exec(stmt_approved)).one()
+
+        stmt_students = select(func.count(Member.uid)).where(
+            Member.account_approved == True,
+            Member.status == Status.STUDENT
+        )
+        student_count = (await session.exec(stmt_students)).one()
+
+        stmt_alumni = select(func.count(Member.uid)).where(
+            Member.account_approved == True,
+            Member.status == Status.ALUMNI
+        )
+        alumni_count = (await session.exec(stmt_alumni)).one()
+
+        return {
+            "total_pending": pending_count,
+            "total_approved": approved_count,
+            "total_students": student_count,
+            "total_alumni": alumni_count
+        }

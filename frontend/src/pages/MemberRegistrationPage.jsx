@@ -41,7 +41,7 @@ export default function MemberRegistrationPage() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [newUid, setNewUid] = useState('demo-uid-123'); // Default for demo
+  const [newUid, setNewUid] = useState(null);
 
   const [subgroups, setSubgroups] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -75,11 +75,9 @@ export default function MemberRegistrationPage() {
 
   useEffect(() => {
     const role = window.localStorage.getItem('hub_role');
-    if (role === 'member') {
+    const token = window.localStorage.getItem('hub_token');
+    if (token && role === 'member') {
       navigate('/profile');
-      return;
-    } else if (role === 'admin') {
-      navigate('/admin');
       return;
     }
 

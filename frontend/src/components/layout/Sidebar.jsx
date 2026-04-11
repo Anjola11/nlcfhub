@@ -1,11 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { LayoutDashboard, Users, UserCheck, Bell, ScrollText, LogOut, X } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { gsap } from 'gsap';
 
 export function Sidebar({ isOpen, onClose }) {
   const drawerRef = useRef(null);
+  const navigate = useNavigate();
   
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
@@ -17,12 +18,19 @@ export function Sidebar({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
+  const handleSignOut = () => {
+    window.localStorage.removeItem('hub_token');
+    window.localStorage.removeItem('hub_uid');
+    window.localStorage.removeItem('hub_role');
+    navigate('/console-7x/login');
+  };
+
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", to: "/admin" },
-    { icon: Users, label: "All Members", to: "/admin/members" },
-    { icon: UserCheck, label: "Approvals", to: "/admin/approvals" },
-    { icon: Bell, label: "Settings", to: "/admin/settings" },
-    { icon: ScrollText, label: "Log", to: "/admin/log" },
+    { icon: LayoutDashboard, label: "Dashboard", to: "/console-7x" },
+    { icon: Users, label: "All Members", to: "/console-7x/members" },
+    { icon: UserCheck, label: "Approvals", to: "/console-7x/approvals" },
+    { icon: Bell, label: "Settings", to: "/console-7x/settings" },
+    { icon: ScrollText, label: "Log", to: "/console-7x/log" },
   ];
 
   const content = (
@@ -44,7 +52,7 @@ export function Sidebar({ isOpen, onClose }) {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/admin"}
+            end={item.to === "/console-7x"}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-[20px] py-[12px] rounded-[12px] transition-all duration-200 group text-[14px]",
               isActive 
@@ -72,9 +80,12 @@ export function Sidebar({ isOpen, onClose }) {
 
       <div className="border-t border-white/10 p-4 shrink-0">
         <div className="px-2 mb-3">
-          <p className="font-sans text-[12px] text-[rgba(253,251,247,0.4)] truncate">admin@nlcf.org</p>
+          <p className="font-sans text-[12px] text-[rgba(253,251,247,0.4)] truncate">Admin</p>
         </div>
-        <button className="w-full flex items-center justify-center gap-2 px-[16px] py-[8px] rounded-[var(--radius-button)] text-[rgba(253,251,247,0.5)] font-medium hover:text-[var(--status-error)] hover:bg-white/5 transition-colors">
+        <button 
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 px-[16px] py-[8px] rounded-[var(--radius-button)] text-[rgba(253,251,247,0.5)] font-medium hover:text-[var(--status-error)] hover:bg-white/5 transition-colors"
+        >
           <LogOut size={16} />
           <span>Sign out</span>
         </button>

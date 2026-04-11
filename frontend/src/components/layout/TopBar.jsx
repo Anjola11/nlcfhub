@@ -8,6 +8,7 @@ export function TopBar({ onMenuClick }) {
   
   let pageTitle = "Dashboard";
   if (location.pathname.includes('/members')) pageTitle = "Members";
+  else if (location.pathname.includes('/approvals')) pageTitle = "Approvals";
   else if (location.pathname.includes('/settings')) pageTitle = "Notification Settings";
   else if (location.pathname.includes('/log')) pageTitle = "Notification Log";
 

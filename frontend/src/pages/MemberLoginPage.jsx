@@ -21,12 +21,11 @@ export default function MemberLoginPage() {
   const formRef = useRef(null);
 
   useEffect(() => {
+    // If already logged in, redirect
+    const token = window.localStorage.getItem('hub_token');
     const role = window.localStorage.getItem('hub_role');
-    if (role === 'member') {
+    if (token && role === 'member') {
       navigate('/profile');
-      return;
-    } else if (role === 'admin') {
-      navigate('/admin');
       return;
     }
 
@@ -133,12 +132,6 @@ export default function MemberLoginPage() {
           <div className="stagger-item mt-6 text-center text-[var(--text-secondary)] text-[14px]">
             Don't have an account? <br />
             <button type="button" onClick={() => navigate('/register')} className="text-[var(--surface-navy)] font-semibold hover:underline mt-1">Register here</button>
-          </div>
-
-          {/* Helper for demo logic  */}
-          <div className="stagger-item mt-6 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] p-3 rounded-[12px] text-[12px] font-mono text-[var(--text-secondary)] text-center">
-            Demo Credentials:<br />
-            admin@nlcf.org | pending@nlcf.org <br /> user@nlcf.org (pw: 'password' or anything)
           </div>
         </form>
       </div>

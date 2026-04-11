@@ -1,11 +1,24 @@
-from fastapi import APIRouter, Depends, status, Request
+from fastapi import APIRouter, Depends, status, Query
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from src.admin.services import AdminServices
+from src.admin.schemas import MemberAdminUpdate
+from src.utils.dependencies import require_admin
 from src.utils.logger import logger
+import uuid
 
+# Public metadata routes (no auth required)
 meta_router = APIRouter()
+
+# Admin-only routes — every endpoint here requires admin authentication
+admin_router = APIRouter(
+    dependencies=[Depends(require_admin)]
+)
+
 admin_services = AdminServices()
+
+
+# ── Public Metadata ──────────────────────────────────────────────────────────
 
 @meta_router.get('/posts', status_code=status.HTTP_200_OK)
 async def get_posts(session: AsyncSession = Depends(get_session)):
@@ -23,4 +36,85 @@ async def get_subgroups(session: AsyncSession = Depends(get_session)):
         "success": True,
         "message": "Subgroups retrieved successfully",
         "data": subgroups
+    }
+
+
+# ── Admin: Member Management ────────────────────────────────────────────────
+
+@admin_router.get('/members/pending', status_code=status.HTTP_200_OK)
+async def get_pending_members(session: AsyncSession = Depends(get_session)):
+    logger.info("Admin fetching pending members")
+    members = await admin_services.get_all_pending_members(session)
+    return {"success": True, "data": members}
+
+
+@admin_router.get('/members/approved', status_code=status.HTTP_200_OK)
+async def get_approved_members(
+    status_filter: str | None = Query(None, alias="status"),
+    birth_month: int | None = Query(None, ge=1, le=12),
+    session: AsyncSession = Depends(get_session)
+):
+    logger.info(f"Admin fetching approved members (status={status_filter}, month={birth_month})")
+    members = await admin_services.get_all_approved_members(
+        session, status_filter=status_filter, birth_month=birth_month
+    )
+    return {"success": True, "data": members}
+
+
+@admin_router.get('/members/{member_uid}', status_code=status.HTTP_200_OK)
+async def get_member_details(
+    member_uid: uuid.UUID,
+    session: AsyncSession = Depends(get_session)
+):
+    member = await admin_services.get_member_details(member_uid, session)
+    return {"success": True, "data": member}
+
+
+@admin_router.patch('/members/{member_uid}/approve', status_code=status.HTTP_200_OK)
+async def approve_member(
+    member_uid: uuid.UUID,
+    session: AsyncSession = Depends(get_session)
+):
+    logger.info(f"Admin approving member {member_uid}")
+    return await admin_services.approve_member(member_uid, session)
+
+
+@admin_router.delete('/members/{member_uid}/reject', status_code=status.HTTP_200_OK)
+async def reject_member(
+    member_uid: uuid.UUID,
+    session: AsyncSession = Depends(get_session)
+):
+    logger.info(f"Admin rejecting member {member_uid}")
+    return await admin_services.reject_member(member_uid, session)
+
+
+@admin_router.delete('/members/{member_uid}', status_code=status.HTTP_200_OK)
+async def delete_approved_member(
+    member_uid: uuid.UUID,
+    session: AsyncSession = Depends(get_session)
+):
+    logger.info(f"Admin deleting member {member_uid}")
+    return await admin_services.delete_member(member_uid, session)
+
+
+@admin_router.patch('/members/{member_uid}', status_code=status.HTTP_200_OK)
+async def edit_member(
+    member_uid: uuid.UUID,
+    member_data: MemberAdminUpdate,
+    session: AsyncSession = Depends(get_session)
+):
+    logger.info(f"Admin editing member {member_uid}")
+    member = await admin_services.edit_member_details(member_uid, member_data, session)
+    return {"success": True, "message": "Member updated", "data": member}
+
+
+@admin_router.get('/stats', status_code=status.HTTP_200_OK)
+async def get_dashboard_stats(session: AsyncSession = Depends(get_session)):
+    """Returns high-level statistics for the admin dashboard overview."""
+    logger.info("Admin fetching dashboard stats")
+    stats = await admin_services.get_dashboard_stats(session)
+    return {
+        "success": True,
+        "message": "Dashboard statistics retrieved successfully",
+        "data": stats
     }

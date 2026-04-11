@@ -108,3 +108,18 @@ async def get_approved_member(
         )
         
     return current_member
+
+
+async def require_admin(
+    current_user = Depends(get_current_member)
+):
+    """
+    Dependency to strictly enforce Admin-only access.
+    Throws a 403 Forbidden if a standard member tries to access the route.
+    """
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized. Admin access required."
+        )
+    return current_user

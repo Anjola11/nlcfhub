@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './hooks/useToast';
 import AdminShell from './components/layout/AdminShell';
-import { DemoSwitcher } from './components/ui/DemoSwitcher';
 
 import MemberRegistrationPage from './pages/MemberRegistrationPage';
 import MemberLoginPage from './pages/MemberLoginPage';
@@ -23,7 +22,6 @@ export default function App() {
   return (
     <ToastProvider>
       <BrowserRouter>
-        <DemoSwitcher />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/register" element={<MemberRegistrationPage />} />
@@ -34,9 +32,9 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           
-          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/console-7x/login" element={<AdminLoginPage />} />
           
-          <Route path="/admin" element={<AdminShell />}>
+          <Route path="/console-7x" element={<AdminShell />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="members" element={<AdminMembersPage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />

@@ -4,7 +4,7 @@ from src.db.main import init_db
 from fastapi.middleware.cors import CORSMiddleware
 from src.utils.logger import logger
 from src.auth.routes import auth_router
-from src.admin.routes import meta_router
+from src.admin.routes import meta_router, admin_router
 from src.members.routes import members_router
 
 
@@ -94,3 +94,4 @@ async def custom_validation_exception_handler(request:Request, exc: RequestValid
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(meta_router, prefix="/api/v1/meta", tags=["Metadata"])
 app.include_router(members_router, prefix="/api/v1/members", tags=["Members"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])

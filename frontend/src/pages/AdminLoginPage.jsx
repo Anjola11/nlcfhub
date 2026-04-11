@@ -18,11 +18,19 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // If already logged in as admin, redirect
+    const token = window.localStorage.getItem('hub_token');
+    const role = window.localStorage.getItem('hub_role');
+    if (token && role === 'admin') {
+      navigate('/console-7x');
+      return;
+    }
+
     if (leftColRef.current) {
       const els = leftColRef.current.querySelectorAll('.stagger-item');
       gsap.fromTo(els, { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.12, duration: 0.6, clearProps: 'all' });
     }
-  }, []);
+  }, [navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -33,7 +41,7 @@ export default function AdminLoginPage() {
       window.localStorage.setItem('hub_token', res.token);
       window.localStorage.setItem('hub_uid', res.uid);
       window.localStorage.setItem('hub_role', 'admin');
-      navigate('/admin');
+      navigate('/console-7x');
     } catch (err) {
       setError(err.message || 'Incorrect email or password.');
       gsap.to(formRef.current, { keyframes: { x: [-8, 8, -6, 6, 0] }, duration: 0.4, ease: 'power2.out' });
