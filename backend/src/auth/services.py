@@ -57,8 +57,8 @@ class AuthServices:
         # Verify member doesn't already exist
         await self.get_member(memberInput.email, session, return_data=False)
         
-        # Hash password before storing
-        hashed_password = generate_password_hash(memberInput.password)
+        # Hash password before storing (strip to prevent accidental whitespace issues)
+        hashed_password = generate_password_hash(memberInput.password.strip())
 
         # Create new member instance
         new_member = Member(
@@ -321,7 +321,8 @@ class AuthServices:
                 detail=f"Please verify your account before you can login. [UID:{member.uid}]"
             )
 
-        verified_password = verify_password_hash(loginInput.password, member.password_hash)
+        # Verify password (strip to prevent accidental whitespace issues)
+        verified_password = verify_password_hash(loginInput.password.strip(), member.password_hash)
 
         if not verified_password:
             raise INVALID_CREDENTIALS
@@ -413,8 +414,9 @@ class AuthServices:
                 detail="Member not found"
             )
 
-        new_hashed_password = generate_password_hash(resetPasswordInput.new_password)
+        new_hashed_password = generate_password_hash(resetPasswordInput.new_password.strip())
         member.password_hash = new_hashed_password
+        member.email_verified = True  # Successful reset via OTP proves email ownership
 
         try:
             session.add(member)
