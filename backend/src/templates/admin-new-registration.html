@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Member Registration Notification</title>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f7f9fc; color: #1a1a1b; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+        .header { background-color: #0c0c14; padding: 32px; text-align: center; }
+        .header h1 { color: #f2cc8f; margin: 0; font-size: 24px; letter-spacing: 0.05em; text-transform: uppercase; }
+        .content { padding: 40px; }
+        .content h2 { font-size: 20px; color: #0c0c14; margin-top: 0; }
+        .info-card { background: #fdfaf3; border: 1px solid #f2cc8f33; border-radius: 12px; padding: 24px; margin: 24px 0; }
+        .info-row { display: flex; margin-bottom: 12px; }
+        .info-label { font-weight: 600; color: #666e75; width: 100px; flex-shrink: 0; }
+        .info-value { color: #0c0c14; }
+        .footer { padding: 32px; text-align: center; border-top: 1px solid #f0f2f5; color: #666e75; font-size: 14px; }
+        .btn { display: inline-block; background-color: #f2cc8f; color: #0c0c14; padding: 16px 32px; border-radius: 50px; text-decoration: none; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 24px; transition: background-color 0.2s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NLCFHUB ALERT</h1>
+        </div>
+        <div class="content">
+            <h2>New Registration Pending Approval</h2>
+            <p>A new member has just registered on the platform and is waiting for your approval before they can access the hub.</p>
+            
+            <div class="info-card">
+                <div class="info-row">
+                    <div class="info-label">Name:</div>
+                    <div class="info-value">{{ member_name }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Email:</div>
+                    <div class="info-value">{{ member_email }}</div>
+                </div>
+            </div>
+
+            <p>Please review their details and approve or reject the application as soon as possible.</p>
+            
+            <a href="https://nlcfhub.vercel.app/console-7x/approvals" class="btn">Review Applications</a>
+        </div>
+        <div class="footer">
+            &copy; 2026 NLCFHUB Administrative System
+        </div>
+    </div>
+</body>
+</html>

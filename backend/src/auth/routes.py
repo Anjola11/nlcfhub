@@ -55,6 +55,13 @@ async def create_user(
         f"{member_input.first_name} {member_input.last_name}"
     )
 
+    # Notify admin of new registration
+    background_tasks.add_task(
+        email_services.send_admin_new_registration_notification,
+        f"{member_input.first_name} {member_input.last_name}",
+        member_input.email
+    )
+
     response.set_cookie(
         key="access_token",
         value=member_data.get("access_token"),
@@ -87,15 +94,9 @@ async def verify_otp(
     result = await auth_services.verify_otp(otp_input, session)
     
     if otp_input.otp_type == OtpTypes.SIGNUP:
-        email_services = EmailServices()
-        background_tasks.add_task(
-            email_services.send_welcome_email,
-            result.email,
-            f"{result.first_name} {result.last_name}"
-        )
         return {
             "success": True,
-            "message": "OTP verified, proceed to login",
+            "message": "OTP verified, please wait for admin approval before you can login",
             "data": result
         }
         

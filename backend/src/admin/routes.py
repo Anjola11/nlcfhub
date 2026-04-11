@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from src.admin.services import AdminServices
@@ -97,10 +97,21 @@ async def get_member_details(
 @admin_router.patch('/members/{member_uid}/approve', status_code=status.HTTP_200_OK)
 async def approve_member(
     member_uid: uuid.UUID,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session)
 ):
     logger.info(f"Admin approving member {member_uid}")
-    return await admin_services.approve_member(member_uid, session)
+    member = await admin_services.approve_member(member_uid, session)
+    
+    # Send welcome email now that account is approved
+    email_services = EmailServices()
+    background_tasks.add_task(
+        email_services.send_welcome_email,
+        member.email,
+        f"{member.first_name} {member.last_name}"
+    )
+    
+    return {"success": True, "message": "Member approved successfully"}
 
 
 @admin_router.delete('/members/{member_uid}/reject', status_code=status.HTTP_200_OK)

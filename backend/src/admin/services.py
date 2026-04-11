@@ -103,7 +103,8 @@ class AdminServices:
         member.account_approved = True
         session.add(member)
         await session.commit()
-        return {"success": True, "message": "Member approved successfully"}
+        await session.refresh(member)
+        return member
 
     async def reject_member(self, member_uid: UUID, session: AsyncSession):
         member = await self._get_member_or_404(member_uid, session)

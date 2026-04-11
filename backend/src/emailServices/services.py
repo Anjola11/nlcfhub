@@ -33,6 +33,7 @@ class EmailServices:
         self.BREVO_API_KEY = Config.BREVO_API_KEY
         self.BREVO_EMAIL = Config.BREVO_EMAIL
         self.BREVO_SENDER_NAME = Config.BREVO_SENDER_NAME
+        self.ADMIN_EMAIL = Config.ADMIN_EMAIL
 
         # Initialize the modern Brevo Client
         self.client = Brevo(api_key=self.BREVO_API_KEY)
@@ -109,10 +110,19 @@ class EmailServices:
     def send_welcome_email(self, user_email: str, user_name: str):
         html = self.render_template('welcome', {
             'username': user_name,
-            'email': user_email 
+            'email': user_email,
+            'login_url': "https://nlcfhub.vercel.app/login"
         })
-        text_content = f"Welcome, {user_name}! Thank you for verifying your email."
-        return self.send_email(user_email, 'Welcome!', html, text_content)
+        text_content = f"Welcome, {user_name}! Your account has been approved. You can now login at https://nlcfhub.vercel.app/login"
+        return self.send_email(user_email, 'Account Approved - Welcome to NLCFHUB', html, text_content)
+
+    def send_admin_new_registration_notification(self, member_name: str, member_email: str):
+        html = self.render_template('admin-new-registration', {
+            'member_name': member_name,
+            'member_email': member_email
+        })
+        text_content = f"New Registration Alert: {member_name} ({member_email}) is waiting for approval."
+        return self.send_email(self.ADMIN_EMAIL, 'New Registration Pending Approval', html, text_content)
     
     def send_forgot_password_otp(self, user_email: str, otp_code: str, user_name: str):
         html = self.render_template('forgot-password-otp', {

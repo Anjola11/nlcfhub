@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET:str
     SEED_KEY: str = ""
+    ADMIN_EMAIL: str = "admin@example.com"
 
 
     model_config = SettingsConfigDict(
