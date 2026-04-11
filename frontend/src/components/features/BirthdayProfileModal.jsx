@@ -14,24 +14,48 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const { addToast } = useToast();
   
   const [downloading, setDownloading] = useState(false);
+  const scopeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       isClosing.current = false;
       document.body.style.overflow = 'hidden';
-      gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.2 });
-      gsap.fromTo(modalPanelRef.current, { scale: 0.92, opacity: 0, y: 24 }, { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: 'back.out(1.4)' });
       
-      if (photoEl.current) {
-        gsap.from(photoEl.current, { opacity: 0, scale: 1.04, duration: 0.5, ease: 'power2.out' });
-      }
+      const ctx = gsap.context(() => {
+        // Fade in backdrop
+        gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.2 });
+        
+        // Final position/scale for panel
+        gsap.fromTo(modalPanelRef.current, 
+          { scale: 0.92, opacity: 0, y: 24 }, 
+          { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: 'back.out(1.4)' }
+        );
+        
+        // Animate photo
+        if (photoEl.current) {
+          gsap.fromTo(photoEl.current, 
+            { opacity: 0, scale: 1.04 }, 
+            { opacity: 1, scale: 1, duration: 0.5, ease: 'power2.out' }
+          );
+        }
 
-      gsap.from('.info-row-item', { opacity: 0, y: 8, stagger: 0.07, duration: 0.3, delay: 0.2 });
-      gsap.from('.btn-grid-item', { opacity: 0, y: 12, stagger: 0.06, duration: 0.3, delay: 0.35 });
+        // Animate content items
+        gsap.fromTo('.info-row-item', 
+          { opacity: 0, y: 8 }, 
+          { opacity: 1, y: 0, stagger: 0.07, duration: 0.3, delay: 0.2 }
+        );
+        
+        gsap.fromTo('.btn-grid-item', 
+          { opacity: 0, y: 12 }, 
+          { opacity: 1, y: 0, stagger: 0.06, duration: 0.3, delay: 0.35 }
+        );
+      }, scopeRef);
+
+      return () => ctx.revert();
     } else {
       document.body.style.overflow = '';
     }
-  }, [isOpen, member]);
+  }, [isOpen]);
 
   const handleClose = () => {
     if (isClosing.current) return;
@@ -52,12 +76,12 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const initials = member.full_name ? member.full_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : '?';
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" ref={scopeRef}>
       <div ref={backdropRef} className="absolute inset-0 bg-[var(--surface-overlay)]" onClick={handleClose} />
       
       <div ref={modalPanelRef} className="relative w-full max-w-[480px] bg-[var(--surface-white)] rounded-[24px] overflow-hidden shadow-2xl z-10">
         
-        <div className="relative h-[280px] bg-[var(--surface-navy)] overflow-hidden rounded-t-[24px]">
+        <div className="relative h-[280px] bg-[var(--surface-navy)] overflow-hidden rounded-t-[24px] flex items-center justify-center">
           {member.photoUrl ? (
             <>
               <img ref={photoEl} src={member.photoUrl} alt={member.full_name} className="w-full h-full object-cover object-top" />
@@ -90,6 +114,11 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
         <div className="px-[24px] pt-[20px]">
           <div className="flex items-center flex-wrap gap-3">
             <Badge variant="subgroup" className="info-row-item">{member.subgroup}</Badge>
+            {member.posts && (
+              <Badge variant="subgroup" className="info-row-item bg-amber-100 !text-amber-900 border border-amber-200">
+                {member.posts}
+              </Badge>
+            )}
             <Badge variant={member.member_type === 'active' ? "member-type-active" : "member-type-alumni"} className="info-row-item text-capitalize">
               {member.member_type}
             </Badge>
@@ -121,16 +150,10 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
               <User size={18} /> Copy Name
             </button>
             <button 
-              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors"
+              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors col-span-2"
               onClick={(e) => copyToClipboard(`Happy Birthday ${member.full_name}! | ${member.subgroup} | ${member.member_type === 'active' ? 'Member' : 'Alumni'}`, e, "Caption copied")}
             >
               <Copy size={18} /> Copy Caption
-            </button>
-            <button 
-              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors"
-              onClick={(e) => copyToClipboard(`https://nlcfhub.org/me/${member.id}?token=token123`, e, "Link copied")}
-            >
-              <Link size={18} /> Copy Edit Link
             </button>
           </div>
           <button className="w-full flex justify-center items-center gap-2 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-sans font-semibold text-[14px] transition-colors">

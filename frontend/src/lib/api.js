@@ -169,10 +169,13 @@ export const api = {
     return json.data;
   },
 
-  async getApprovedMembers({ status, birth_month } = {}) {
+  async getApprovedMembers(filters = {}, limit = 50, offset = 0) {
     const params = new URLSearchParams();
-    if (status) params.set('status', status);
-    if (birth_month) params.set('birth_month', birth_month);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.month) params.append('birth_month', filters.month);
+    params.append('limit', limit);
+    params.append('offset', offset);
+    
     const qs = params.toString() ? `?${params.toString()}` : '';
 
     const res = await fetch(`${BASE_URL}/api/v1/admin/members/approved${qs}`, {
@@ -181,6 +184,16 @@ export const api = {
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch members');
+    return json.data;
+  },
+
+  async getUpcomingBirthdays(limit = 5) {
+    const res = await fetch(`${BASE_URL}/api/v1/admin/members/upcoming-birthdays?limit=${limit}`, {
+      credentials: 'include',
+      headers: {},
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch upcoming birthdays');
     return json.data;
   },
 

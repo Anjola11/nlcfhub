@@ -17,6 +17,11 @@ export default function AdminMembersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
 
+  // Pagination State
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(50);
+  const [hasMore, setHasMore] = useState(true);
+
   const [isAddEditModalOpen, setAddEditModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isCSVModalOpen, setCSVModalOpen] = useState(false);
@@ -24,11 +29,14 @@ export default function AdminMembersPage() {
 
   const bulkBarRef = useRef(null);
   
-  const loadMembers = async () => {
+  const loadMembers = async (currentPage = page) => {
     setLoading(true);
     try {
-      const data = await api.getApprovedMembers();
+      const offset = currentPage * pageSize;
+      const data = await api.getApprovedMembers({}, pageSize, offset);
       setMembers(data);
+      // If we got fewer results than requested, we've hit the end
+      setHasMore(data.length === pageSize);
     } catch (err) {
       addToast({ message: err.message || 'Failed to load members', type: 'error' });
     } finally {
@@ -37,8 +45,8 @@ export default function AdminMembersPage() {
   };
 
   useEffect(() => {
-    loadMembers();
-  }, []);
+    loadMembers(page);
+  }, [page]);
 
   useEffect(() => {
     if (selectedRows.length > 0 && bulkBarRef.current) {
@@ -138,7 +146,7 @@ export default function AdminMembersPage() {
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)] group cursor-pointer hover:text-[var(--text-primary)] transition-colors">Name <ChevronDown size={14} className="inline opacity-0 group-hover:opacity-100 transition-opacity" /></th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Phone</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Birthday</th>
-                <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Subgroup</th>
+                <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)] text-center">Subgroup / Post</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Type</th>
                 <th className="px-[20px] py-[12px] w-[140px]"></th>
               </tr>
@@ -171,8 +179,20 @@ export default function AdminMembersPage() {
                   </td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone_number || '—'}</td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-primary)]">{bdayFormat(m.birth_month, m.birth_day)}</td>
-                  <td className="px-[20px]">
-                    <Badge variant="subgroup">{getSubgroups(m)}</Badge>
+                  <td className="px-[20px] text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      {getSubgroups(m) !== '—' ? (
+                        <Badge variant="subgroup">{getSubgroups(m)}</Badge>
+                      ) : (
+                        <span className="text-[var(--text-secondary)]">—</span>
+                      )}
+                      
+                      {getPosts(m) !== '—' && (
+                        <div className="font-sans text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 w-fit">
+                          {getPosts(m)}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-[20px]">
                     <Badge variant={m.status === 'student' ? 'member-type-active' : 'member-type-alumni'} className="capitalize">{m.status}</Badge>
@@ -216,9 +236,40 @@ export default function AdminMembersPage() {
         </div>
       </div>
 
+      {/* Pagination Controls */}
+      <div className="mt-6 flex items-center justify-between px-2">
+        <div className="text-[13px] text-[var(--text-secondary)] font-sans">
+          Page <span className="font-semibold text-[var(--text-primary)]">{page + 1}</span> 
+          {members.length > 0 && ` (Showing ${members.length} members)`}
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+            className="h-[36px] gap-1 px-3"
+          >
+            <ChevronLeft size={16} /> Previous
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setPage(p => p + 1)}
+            disabled={!hasMore || loading}
+            className="h-[36px] gap-1 px-3"
+          >
+            Next <ChevronRight size={16} />
+          </Button>
+        </div>
+      </div>
+
       <AddEditMemberModal 
         isOpen={isAddEditModalOpen} 
-        onClose={() => setAddEditModalOpen(false)} 
+        onClose={() => {
+          setAddEditModalOpen(false);
+          setEditingMember(null);
+        }}
         member={editingMember}
         onSubmit={handleEditSubmit}
       />

@@ -52,16 +52,16 @@ class Member(SQLModel, table=True):
 
     title: Optional[Title] = Field(default=None)
 
-    birth_month: int = Field(ge= 1, le=12)
+    birth_month: int = Field(ge= 1, le=12, index=True)
     birth_day: int = Field(ge=1, le=31)
 
     phone_number: PhoneNumber = Field(unique=True, index=True, max_length=20)
 
     password_hash: str = Field(exclude=True)
 
-    account_approved: bool = Field(default=False)
+    account_approved: bool = Field(default=False, index=True)
 
-    status: Status
+    status: Status = Field(index=True)
 
     created_at: datetime = Field(
         default_factory=utc_now,

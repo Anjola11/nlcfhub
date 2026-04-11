@@ -57,12 +57,12 @@ export default function AdminDashboardPage() {
     const loadData = async () => {
       try {
         // Fetch real approved members for birthday data
-        let approvedMembers = [];
+        let upcomingBirthdayMembers = [];
         try {
-          approvedMembers = await api.getApprovedMembers();
+          // Fetch only the top 5 upcoming birthdays from the database
+          upcomingBirthdayMembers = await api.getUpcomingBirthdays(5);
         } catch (e) {
-          // If admin API fails, show empty state
-          console.warn('Could not fetch members for dashboard:', e);
+          console.warn('Could not fetch upcoming birthdays:', e);
         }
 
         // Fetch real stats from the database-aggregated endpoint
@@ -78,23 +78,29 @@ export default function AdminDashboardPage() {
         setStats(s);
         
         // Map members to birthday card format
-        const today = new Date();
-        const mappedM = approvedMembers.map(x => {
-          const nextBd = new Date(today.getFullYear(), (x.birth_month || 1) - 1, x.birth_day || 1);
-          if (nextBd < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
-             nextBd.setFullYear(today.getFullYear() + 1);
+        const todayAtMidnight = new Date();
+        todayAtMidnight.setHours(0, 0, 0, 0);
+
+        const mappedM = upcomingBirthdayMembers.map(x => {
+          const nextBd = new Date(todayAtMidnight.getFullYear(), (x.birth_month || 1) - 1, x.birth_day || 1);
+          if (nextBd < todayAtMidnight) {
+             nextBd.setFullYear(todayAtMidnight.getFullYear() + 1);
           }
-          const daysUntil = Math.ceil((nextBd - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+          const daysUntil = Math.ceil((nextBd - todayAtMidnight) / 86400000);
+          
           return { 
             ...x, 
             id: x.uid,
             full_name: x.fullname || `${x.first_name} ${x.last_name}`,
             daysUntil,
             subgroup: x.subgroups?.map(s => s.name).join(', ') || '—',
+            posts: x.posts_held?.map(p => p.name).join(', ') || '',
             member_type: x.status === 'student' ? 'active' : 'alumni',
-            photoUrl: x.profile_picture_url,
+            photoUrl: x.birthday_picture_url || x.profile_picture_url,
+            phone: x.phone_number || '—',
+            birthday: new Date(2000, (x.birth_month || 1) - 1, x.birth_day || 1).toISOString(),
           };
-        }).sort((a, b) => a.daysUntil - b.daysUntil);
+        });
         
         setMembers(mappedM);
         setLogs(l);

@@ -36,7 +36,9 @@ class AdminServices:
         self,
         session: AsyncSession,
         status_filter: str = None,
-        birth_month: int = None
+        birth_month: int = None,
+        limit: int = 50,
+        offset: int = 0
     ):
         statement = (
             select(Member)
@@ -45,12 +47,53 @@ class AdminServices:
                 selectinload(Member.posts_held),
                 selectinload(Member.subgroups)
             )
+            .limit(limit)
+            .offset(offset)
         )
 
         if status_filter:
             statement = statement.where(Member.status == status_filter)
         if birth_month:
             statement = statement.where(Member.birth_month == birth_month)
+
+        result = await session.exec(statement)
+        return result.all()
+
+    async def get_upcoming_birthdays(self, session: AsyncSession, limit: int = 5):
+        """
+        Retrieves upcoming birthdays across the entire database using a SQL case sort
+        to handle year wrap-around (e.g., showing January when in December).
+        """
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import case
+
+        # Lagos Time (UTC+1)
+        lagos_tz = timezone(timedelta(hours=1))
+        today = datetime.now(lagos_tz)
+        current_month = today.month
+        current_day = today.day
+
+        # Weighting logic: happen this year (0) vs. happened already/next year (1)
+        is_next_year = case(
+            (Member.birth_month > current_month, 0),
+            ((Member.birth_month == current_month) & (Member.birth_day >= current_day), 0),
+            else_=1
+        )
+
+        statement = (
+            select(Member)
+            .where(Member.account_approved == True)
+            .options(
+                selectinload(Member.posts_held),
+                selectinload(Member.subgroups)
+            )
+            .order_by(
+                is_next_year,
+                Member.birth_month,
+                Member.birth_day
+            )
+            .limit(limit)
+        )
 
         result = await session.exec(statement)
         return result.all()
