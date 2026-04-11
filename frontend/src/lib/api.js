@@ -47,6 +47,28 @@ export const api = {
     return json;
   },
 
+  async forgotPassword(email) {
+    const res = await fetch(`${BASE_URL}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to request reset code');
+    return json; // Returns { success, data: { uid } }
+  },
+
+  async resetPassword({ reset_token, new_password }) {
+    const res = await fetch(`${BASE_URL}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset_token, new_password })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Password reset failed');
+    return json;
+  },
+
   async login(email, password) {
     const res = await fetch(`${BASE_URL}/api/v1/auth/login`, {
       method: 'POST',

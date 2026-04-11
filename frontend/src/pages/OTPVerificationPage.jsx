@@ -52,16 +52,17 @@ export default function OTPVerificationPage() {
   };
 
   const handleResend = async () => {
+    if (!email) {
+        setError('Missing email address. Cannot resend OTP.');
+        return;
+    }
     setResending(true);
     setError(null);
     try {
-      // Since email isn't in URL, we need it. But wait, resendOtp uses email. Oh no, the user just clicks resend. We don't have email. We might need to ask for email or pass it
-      // Let's assume we pass email via state or URL if possible, otherwise we throw error.
-      // await api.resendOtp({ email: '...', otp_type: type });
-      await new Promise(r => setTimeout(r, 800));
+      await api.resendOtp({ email, otp_type: type });
       setError('A new OTP has been sent. Check your email inbox.');
     } catch (err) {
-      setError('Failed to resend OTP.');
+      setError(err.message || 'Failed to resend OTP.');
     } finally {
       setResending(false);
     }

@@ -308,7 +308,7 @@ class AuthServices:
         if not member.email_verified:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Please verify your account before you can login"
+                detail=f"Please verify your account before you can login. [UID:{member.uid}]"
             )
 
         verified_password = verify_password_hash(loginInput.password, member.password_hash)

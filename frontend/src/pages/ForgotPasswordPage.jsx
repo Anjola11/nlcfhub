@@ -19,10 +19,10 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Mocked request to /api/v1/auth/forgot-password
-      await new Promise(r => setTimeout(r, 1000));
-      // Assume the backend returns UID of the user so we can route to OTP
-      navigate('/verify-otp?type=forgotpassword&uid=dummy-uid-1234');
+      const res = await api.forgotPassword(email);
+      // The backend returns { success, data: { uid } }
+      const uid = res.data.uid;
+      navigate(`/verify-otp?type=forgotpassword&uid=${uid}&email=${encodeURIComponent(email)}`);
     } catch (err) {
       gsap.fromTo(cardRef.current, { x: -8 }, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
     } finally {

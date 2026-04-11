@@ -148,7 +148,10 @@ async def forgot_password(
 
     return {
         "success": True,
-        "message": "An OTP to reset password has been sent to your email."
+        "message": "An OTP to reset password has been sent to your email.",
+        "data": {
+            "uid": str(member.uid)
+        }
     }
 
 @auth_router.post('/reset-password', status_code=status.HTTP_200_OK)

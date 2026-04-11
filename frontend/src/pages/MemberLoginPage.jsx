@@ -59,8 +59,14 @@ export default function MemberLoginPage() {
       gsap.to(cardRef.current, { keyframes: { x: [-8, 8, -6, 6, -4, 4, 0] }, duration: 0.45, ease: 'power2.out' });
       
       if (err.message && err.message.toLowerCase().includes('verify')) {
-         addToast({ message: err.message, type: "error" });
-         setTimeout(() => navigate('/verify-otp'), 1200);
+         addToast({ message: "Verification Required. Redirecting...", type: "info" });
+         
+         // Extract UID from message if present: "Please verify... [UID:uuid]"
+         const uidMatch = err.message.match(/\[UID:(.*?)\]/);
+         const extractedUid = uidMatch ? uidMatch[1] : '';
+         
+         const target = `/verify-otp?type=signup&email=${encodeURIComponent(email)}${extractedUid ? `&uid=${extractedUid}` : ''}`;
+         setTimeout(() => navigate(target), 1200);
       } else {
          addToast({ message: err.message || "Invalid email or password", type: "error" });
       }
