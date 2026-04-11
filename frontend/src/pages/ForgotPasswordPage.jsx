@@ -4,9 +4,12 @@ import { gsap } from 'gsap';
 import { KeyRound } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { api } from '../lib/api';
+import { useToast } from '../hooks/useToast';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const cardRef = useRef(null);
@@ -24,6 +27,7 @@ export default function ForgotPasswordPage() {
       const uid = res.data.uid;
       navigate(`/verify-otp?type=forgotpassword&uid=${uid}&email=${encodeURIComponent(email)}`);
     } catch (err) {
+      addToast({ message: err.message || "Something went wrong. Please try again.", type: "error" });
       gsap.fromTo(cardRef.current, { x: -8 }, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
     } finally {
       setLoading(false);

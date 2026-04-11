@@ -4,11 +4,15 @@ import { gsap } from 'gsap';
 import { KeyRound } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { api } from '../lib/api';
+import { useToast } from '../hooks/useToast';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [searchParams] = useSearchParams();
   const uid = searchParams.get('uid');
+  const resetToken = searchParams.get('token');
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,17 +31,22 @@ export default function ResetPasswordPage() {
         setError('Passwords do not match');
         return;
     }
+
+    if (!resetToken) {
+        setError('Reset token is missing. Please try the reset process again.');
+        return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      // Mocked request to /api/v1/auth/reset-password
-      // This endpoint expects the newly stored Reset Token, but we'll mock it passing.
-      await new Promise(r => setTimeout(r, 1000));
+      await api.resetPassword({ reset_token: resetToken, new_password: password });
       
       setSuccess(true);
+      addToast({ message: "Password updated successfully!", type: "success" });
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setError('Token invalid or expired. Try resetting again.');
+      addToast({ message: err.message || "Failed to reset password. Please try again.", type: "error" });
       gsap.fromTo(cardRef.current, { x: -8 }, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
     } finally {
       setLoading(false);
@@ -61,7 +70,7 @@ export default function ResetPasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display font-bold text-[24px] text-[var(--text-primary)] mb-2">Password specific</h2>
+            <h2 className="font-display font-bold text-[24px] text-[var(--text-primary)] mb-2">Password reset successfully</h2>
             <p className="font-sans text-[14px] text-[var(--text-secondary)]">Redirecting to login...</p>
           </div>
         ) : (

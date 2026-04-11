@@ -218,6 +218,11 @@ class AuthServices:
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal server error"
                 )
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP type provided"
+        )
 
     async def resend_otp(self, resend_otp_input: ResendOtpInput,session: AsyncSession, background_tasks = BackgroundTasks):
         """Resends an OTP to the member if applicable."""
@@ -293,6 +298,11 @@ class AuthServices:
                 "message": "Password reset OTP resent successfully",
                 "uid": member.uid
             }
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP type provided"
+        )
             
     async def login_member(self, loginInput: MemberLoginInput, session: AsyncSession):
         member = await self.get_member(loginInput.email, session, True)

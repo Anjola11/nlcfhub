@@ -11,6 +11,7 @@ export default function OTPVerificationPage() {
   const [searchParams] = useSearchParams();
   const uid = searchParams.get('uid');
   const type = searchParams.get('type') || 'signup'; // 'signup' or 'forgotpassword'
+  const email = searchParams.get('email');
   
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,14 +34,16 @@ export default function OTPVerificationPage() {
     setLoading(true);
     setError(null);
     try {
-      await api.verifyOtp({ uid, otp, otp_type: type });
+      const res = await api.verifyOtp({ uid, otp, otp_type: type });
       
       setSuccess(true);
       setTimeout(() => {
           if (type === 'signup') {
             navigate('/pending'); // After signup, they must wait for admin approval
           } else {
-            navigate(`/reset-password?uid=${uid}`);
+            // Include both uid and the reset_token in the URL for the next step
+            const token = res.data?.reset_token || '';
+            navigate(`/reset-password?uid=${uid}&token=${token}`);
           }
       }, 1500);
     } catch (err) {

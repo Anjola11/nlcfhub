@@ -68,7 +68,8 @@ export default function MemberLoginPage() {
          const target = `/verify-otp?type=signup&email=${encodeURIComponent(email)}${extractedUid ? `&uid=${extractedUid}` : ''}`;
          setTimeout(() => navigate(target), 1200);
       } else {
-         addToast({ message: err.message || "Invalid email or password", type: "error" });
+         const displayMessage = err.message && err.message !== "Unauthorized" ? err.message : "Invalid email or password";
+         addToast({ message: displayMessage, type: "error" });
       }
     } finally {
       setTimeout(() => setLoading(false), 300);

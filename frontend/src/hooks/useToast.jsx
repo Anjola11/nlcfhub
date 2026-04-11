@@ -74,19 +74,22 @@ function ToastItem({ toast, onRemove }) {
 
   const variants = {
     success: "bg-white/90 text-[var(--text-primary)] border-white/40",
-    error: "bg-[var(--surface-navy)]/95 text-white border-white/10",
+    error: "bg-[#1A1C3B] text-white border-white/10",
+    info: "bg-white/90 text-[var(--text-primary)] border-white/40",
     default: "bg-white/90 text-[var(--text-primary)] border-white/40"
   };
 
   const progressColors = {
     success: "bg-[var(--status-success)]",
     error: "bg-[var(--status-error)]",
+    info: "bg-[#3B82F6]",
     default: "bg-[var(--surface-gold)]"
   };
 
   const icons = {
     success: <CheckCircle size={16} className="text-[var(--status-success)]" />,
-    error: <AlertCircle size={16} className="text-[var(--status-error)]" />,
+    error: <AlertCircle size={16} className="text-[#EF4444]" />,
+    info: <Info size={16} className="text-[#3B82F6]" />,
     default: <Info size={16} className="text-[var(--surface-gold)]" />
   };
 
