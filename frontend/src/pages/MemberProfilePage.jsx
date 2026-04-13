@@ -292,8 +292,13 @@ export default function MemberProfilePage() {
       </Helmet>
       <div className="max-w-[700px] mx-auto">
         <div className="flex items-center justify-between mb-[32px]">
-          <div className="w-[40px] h-[40px] rounded-full overflow-hidden">
-            <img src="/nlcf_logo_no_bg.svg" alt="NLCFOAU" className="w-full h-full object-cover" />
+          <div className="flex items-center gap-3">
+            <div className="w-[40px] h-[40px] rounded-full overflow-hidden">
+              <img src="/nlcf_logo_no_bg.svg" alt="NLCFOAU" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-display font-extrabold text-[18px] text-[var(--text-primary)] tracking-tight">
+              NLCF Hub
+            </span>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors font-sans text-[14px] font-semibold">
             <LogOut size={16} /> Sign out
