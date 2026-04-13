@@ -256,37 +256,36 @@ export default function MemberRegistrationPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                <div className="field-wrapper">
-                  <Input 
-                    label="EMAIL ADDRESS" 
-                    type="email"
-                    placeholder="e.g. member@example.com"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="field-wrapper">
-                  <Input 
-                    label="PASSWORD" 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                    rightNode={
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(prev => !prev)}
-                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    }
-                    required
-                  />
-                </div>
+              <div className="field-wrapper">
+                <Input 
+                  label="EMAIL ADDRESS" 
+                  type="email"
+                  placeholder="e.g. member@example.com"
+                  value={formData.email}
+                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="field-wrapper">
+                <Input 
+                  label="PASSWORD" 
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChange={e => setFormData({...formData, password: e.target.value})}
+                  rightNode={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  }
+                  required
+                />
               </div>
 
               <div className="field-wrapper">
