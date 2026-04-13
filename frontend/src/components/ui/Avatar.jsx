@@ -23,7 +23,14 @@ export function Avatar({ size = "md", photoUrl, name, className, bordered = fals
       className
     )}>
       {photoUrl ? (
-        <img src={photoUrl} alt={name || "Avatar"} className="w-full h-full object-cover object-center" />
+        <img
+          src={photoUrl}
+          alt={name || "Avatar"}
+          className="w-full h-full object-cover object-center"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+        />
       ) : (
         <span className="font-display font-bold leading-none">{initials}</span>
       )}

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException, status
 from contextlib import asynccontextmanager
 from src.db.main import init_db
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from src.utils.logger import logger
 from src.auth.routes import auth_router
 from src.admin.routes import meta_router, admin_router
@@ -48,6 +49,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1024
 )
 
 @app.get("/")

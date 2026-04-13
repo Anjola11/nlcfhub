@@ -1,20 +1,29 @@
 import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
 import { Clock, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { api } from '../lib/api';
 
 export default function MemberPendingPage() {
   const cardRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 24, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.2)', clearProps: 'all' });
+    const ctx = gsap.context(() => {
+      gsap.fromTo(cardRef.current, { opacity: 0, y: 24, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.2)', clearProps: 'all' });
+    });
+    return () => ctx.revert();
   }, []);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden" 
          style={{ background: 'radial-gradient(ellipse 800px 600px at 50% -100px, rgba(235,183,54,0.08), transparent), var(--bg-canvas)' }}>
+      <Helmet>
+        <title>Pending Approval - NLCF Hub</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       
       <div 
         ref={cardRef} 
@@ -36,8 +45,8 @@ export default function MemberPendingPage() {
           Status: <span className="text-[#D97706] font-semibold">PENDING_VERIFICATION</span>
         </div>
 
-        <Button variant="secondary" className="w-full" onClick={() => {
-            window.localStorage.removeItem('hub_role');
+        <Button variant="secondary" className="w-full" onClick={async () => {
+            await api.logout();
             navigate('/login');
           }}>
           <ArrowLeft size={16} className="mr-2" /> Back to Login

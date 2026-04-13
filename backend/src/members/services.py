@@ -6,7 +6,6 @@ from src.members.schemas import MemberUpdateInput
 from src.file_upload.main import FileUploadServices, ImageCategory
 from src.utils.logger import logger
 import uuid
-from sqlalchemy.exc import DatabaseError
 
 file_upload_service = FileUploadServices()
 
@@ -40,9 +39,7 @@ class MemberServices:
 
         # Update only provided fields
         update_dict = update_data.model_dump(exclude_unset=True)
-        for key, value in update_dict.items():
-            setattr(member, key, value)
-            logger.debug(f"Updating field '{key}' for member {member_id}")
+        member.sqlmodel_update(update_dict)
 
         try:
             session.add(member)
@@ -50,7 +47,7 @@ class MemberServices:
             await session.refresh(member)
             logger.info(f"Successfully updated details for member: {member_id}")
             return member
-        except DatabaseError as e:
+        except Exception as e:
             await session.rollback()
             logger.error(f"Database error updating member {member_id}: {str(e)}", exc_info=True)
             raise HTTPException(
@@ -87,7 +84,7 @@ class MemberServices:
             await session.refresh(member)
             logger.info(f"Successfully updated profile picture for member: {member_id}. New ID: {new_public_id}")
             return member
-        except DatabaseError as e:
+        except Exception as e:
             await session.rollback()
             logger.error(f"Database error updating profile picture for member {member_id}: {str(e)}", exc_info=True)
             raise HTTPException(
@@ -124,7 +121,7 @@ class MemberServices:
             await session.refresh(member)
             logger.info(f"Successfully updated birthday picture for member: {member_id}. New ID: {new_public_id}")
             return member
-        except DatabaseError as e:
+        except Exception as e:
             await session.rollback()
             logger.error(f"Database error updating birthday picture for member {member_id}: {str(e)}", exc_info=True)
             raise HTTPException(

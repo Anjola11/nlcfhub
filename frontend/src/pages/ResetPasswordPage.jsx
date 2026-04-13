@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
 import { KeyRound } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -22,7 +23,10 @@ export default function ResetPasswordPage() {
   const cardRef = useRef(null);
 
   useEffect(() => {
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' });
+    const ctx = gsap.context(() => {
+      gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' });
+    });
+    return () => ctx.revert();
   }, []);
 
   const handleReset = async (e) => {
@@ -55,9 +59,14 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={{ background: 'radial-gradient(ellipse 800px 600px at 50% -100px, rgba(235,183,54,0.08), transparent), var(--bg-canvas)' }}>
+      <Helmet>
+        <title>Reset Password - NLCF Hub</title>
+        <meta name="description" content="Set a new password for your NLCF Hub account." />
+        <link rel="canonical" href="https://nlcfhub.vercel.app/reset-password" />
+      </Helmet>
       <div className="w-[140px] mb-8 relative z-10 flex flex-col justify-center items-center gap-2">
         <div className="w-[48px] h-[48px] rounded-full overflow-hidden bg-[var(--surface-navy)] border border-[var(--border-subtle)]">
-            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+            <img src="/nlcf_logo_no_bg.svg" alt="Logo" className="w-full h-full object-cover" />
         </div>
       </div>
 

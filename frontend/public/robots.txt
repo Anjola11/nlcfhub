@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /forgot-password
+Allow: /reset-password
+
+Disallow: /console-7x/
+Disallow: /profile
+Disallow: /pending
+Disallow: /verify-otp
+
+Sitemap: https://nlcfhub.vercel.app/sitemap.xml

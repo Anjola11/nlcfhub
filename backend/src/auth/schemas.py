@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 import uuid
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from src.auth.models import Status, Title
 from enum import Enum
 
@@ -35,8 +35,6 @@ class AuthMemberOut(BaseModel):
     account_approved: bool
     status: Optional[Status] = None
     email_verified: Optional[bool] = None
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
 
 class AdminOut(BaseModel):
     uid: uuid.UUID
@@ -53,8 +51,15 @@ class MemberCreateInput(BaseModel):
     phone_number: str
     status: Status
     password: str
+    confirm_password: str
     post_ids: list[uuid.UUID] = Field(default_factory=list)
     subgroup_ids: list[uuid.UUID] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_passwords_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 class VerifyOtpInput(BaseModel):
     uid: uuid.UUID

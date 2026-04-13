@@ -78,16 +78,6 @@ class FileUploadServices:
         
 
 
-         #cleanup logic
-        if old_picture_id:
-            try:
-                await asyncio.to_thread(
-                    destroy,
-                    old_picture_id
-                )
-            except Exception as e:
-                logger.warning(f"Warning: Failed to delete old image: {e}")
-
         try:
             response = await asyncio.to_thread(
                 upload,
@@ -96,6 +86,17 @@ class FileUploadServices:
             )
 
             picture_id = response['public_id']
+
+            # Cleanup old image asynchronously so users don't wait on deletion.
+            if old_picture_id:
+                async def cleanup_old_image():
+                    try:
+                        await asyncio.to_thread(destroy, old_picture_id)
+                    except Exception as e:
+                        logger.warning(f"Warning: Failed to delete old image: {e}")
+
+                asyncio.create_task(cleanup_old_image())
+
             logger.info(f"Successfully uploaded {image_category} for member {member_id}. Public ID: {picture_id}")
 
             return picture_id

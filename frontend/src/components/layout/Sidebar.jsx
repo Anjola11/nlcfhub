@@ -3,9 +3,11 @@ import { LayoutDashboard, Users, UserCheck, Bell, ScrollText, LogOut, X } from '
 import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { gsap } from 'gsap';
+import { api } from '../../lib/api';
 
 export function Sidebar({ isOpen, onClose }) {
   const drawerRef = useRef(null);
+  const backdropRef = useRef(null);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -13,15 +15,18 @@ export function Sidebar({ isOpen, onClose }) {
     if (!isMobile) return;
     
     if (isOpen) {
-      gsap.fromTo(drawerRef.current, { x: -280 }, { x: 0, duration: 0.35, ease: 'power3.out' });
-      gsap.fromTo('.sidebar-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.3 });
+      const ctx = gsap.context(() => {
+        gsap.fromTo(drawerRef.current, { x: -280 }, { x: 0, duration: 0.35, ease: 'power3.out' });
+        if (backdropRef.current) {
+          gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3 });
+        }
+      });
+      return () => ctx.revert();
     }
   }, [isOpen]);
 
-  const handleSignOut = () => {
-    window.localStorage.removeItem('hub_token');
-    window.localStorage.removeItem('hub_uid');
-    window.localStorage.removeItem('hub_role');
+  const handleSignOut = async () => {
+    await api.logout();
     navigate('/console-7x/login');
   };
 
@@ -38,7 +43,7 @@ export function Sidebar({ isOpen, onClose }) {
       <div className="h-[72px] flex items-center px-6 justify-between border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-[32px] h-[32px] rounded-full border-2 border-white overflow-hidden bg-white">
-            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+            <img src="/nlcf_logo_no_bg.svg" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-display font-extrabold text-[18px] text-[var(--text-inverse)] tracking-[-0.01em]">NLCFHUB</span>
         </div>
@@ -101,7 +106,11 @@ export function Sidebar({ isOpen, onClose }) {
       
       {isOpen && (
         <div className="lg:hidden fixed inset-0 z-40">
-          <div className="sidebar-backdrop absolute inset-0 bg-[var(--surface-overlay)]" onClick={onClose} />
+          <div 
+            ref={backdropRef}
+            className="absolute inset-0 bg-[var(--surface-overlay)]" 
+            onClick={onClose} 
+          />
           {content}
         </div>
       )}

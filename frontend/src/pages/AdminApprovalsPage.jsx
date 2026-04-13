@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { ShieldCheck, XCircle, Search, UserCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import { Avatar } from '../components/ui/Avatar';
@@ -13,16 +13,32 @@ export default function AdminApprovalsPage() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [actionLoading, setActionLoading] = useState(null); // uid of member being acted on
   const { addToast } = useToast();
   
   const tableRef = useRef(null);
 
-  const loadPending = async () => {
+  const loadPending = async (targetPage = page, targetSearch = debouncedSearch) => {
     setLoading(true);
     try {
-      const data = await api.getPendingMembers();
+      const offset = targetPage * pageSize;
+      const response = await api.getPendingMembers({
+        search: targetSearch,
+        limit: pageSize,
+        offset
+      });
+      const data = response.data || [];
+      const meta = response.meta || {};
+
       setPending(data);
+      setTotal(meta.total || 0);
+      setHasMore((offset + data.length) < (meta.total || 0));
+
       setTimeout(() => {
         if (tableRef.current) staggerReveal(tableRef.current, 'tbody tr');
       }, 50);
@@ -34,15 +50,24 @@ export default function AdminApprovalsPage() {
   };
 
   useEffect(() => {
-    loadPending();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(0);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    loadPending(page, debouncedSearch);
+  }, [page, debouncedSearch]);
 
   const handleApprove = async (uid, name) => {
     setActionLoading(uid);
     try {
       await api.approveMember(uid);
       addToast({ message: `Approved ${name}'s registration`, type: 'success' });
-      loadPending();
+      loadPending(page, debouncedSearch);
     } catch (err) {
       addToast({ message: err.message || 'Failed to approve', type: 'error' });
     } finally {
@@ -55,7 +80,7 @@ export default function AdminApprovalsPage() {
     try {
       await api.rejectMember(uid);
       addToast({ message: `Rejected ${name}'s registration`, type: 'success' });
-      loadPending();
+      loadPending(page, debouncedSearch);
     } catch (err) {
       addToast({ message: err.message || 'Failed to reject', type: 'error' });
     } finally {
@@ -63,13 +88,9 @@ export default function AdminApprovalsPage() {
     }
   };
 
-  const filtered = pending.filter(p => {
-    const name = p.fullname || p.full_name || `${p.first_name} ${p.last_name}`;
-    return name.toLowerCase().includes(search.toLowerCase()) || p.email?.toLowerCase().includes(search.toLowerCase());
-  });
-
   const getMemberName = (p) => p.fullname || p.full_name || `${p.first_name} ${p.last_name}`;
   const getSubgroups = (p) => p.subgroups?.map(s => s.name).join(', ') || '—';
+  const getPosts = (p) => p.posts_held?.map(post => post.name).join(', ') || '—';
 
   return (
     <div className="relative">
@@ -103,7 +124,7 @@ export default function AdminApprovalsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && !loading ? (
+              {pending.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={6} className="py-16">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
@@ -113,7 +134,7 @@ export default function AdminApprovalsPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map((p) => (
+              ) : pending.map((p) => (
                 <tr key={p.uid} className="h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors border-l-[3px] border-l-transparent hover:border-l-[var(--surface-navy)]">
                    <td className="px-[20px]">
                     <Avatar size="sm" name={getMemberName(p)} photoUrl={p.profile_picture_url} />
@@ -123,7 +144,14 @@ export default function AdminApprovalsPage() {
                     <div className="font-sans text-[12px] text-[var(--text-secondary)]">{p.email}</div>
                   </td>
                   <td className="px-[20px]">
-                    <Badge variant="subgroup">{getSubgroups(p)}</Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="subgroup">{getSubgroups(p)}</Badge>
+                      {getPosts(p) !== '—' && (
+                        <div className="font-sans text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 w-fit">
+                          {getPosts(p)}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{p.phone_number || '—'}</td>
                   <td className="px-[20px] font-sans text-[13px] text-[var(--text-secondary)]">
@@ -154,6 +182,33 @@ export default function AdminApprovalsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between px-2">
+        <div className="text-[13px] text-[var(--text-secondary)] font-sans">
+          Page <span className="font-semibold text-[var(--text-primary)]">{page + 1}</span>
+          {total > 0 && ` (Showing ${pending.length} of ${total})`}
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+            className="h-[36px] gap-1 px-3"
+          >
+            Previous
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setPage(p => p + 1)}
+            disabled={!hasMore || loading}
+            className="h-[36px] gap-1 px-3"
+          >
+            Next
+          </Button>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
+from sqlalchemy import or_, case
 from src.admin.models import Post, Subgroup
 from fastapi import HTTPException, status
 from src.auth.models import Member, Status
@@ -20,44 +21,88 @@ class AdminServices:
             )
         return member
 
-    async def get_all_pending_members(self, session: AsyncSession):
+    async def get_all_pending_members(
+        self,
+        session: AsyncSession,
+        search: str | None = None,
+        limit: int = 25,
+        offset: int = 0
+    ):
+        filters = [Member.account_approved == False]
+
+        cleaned_search = search.strip() if search else None
+        if cleaned_search:
+            search_term = f"%{cleaned_search}%"
+            filters.append(
+                or_(
+                    Member.first_name.ilike(search_term),
+                    Member.last_name.ilike(search_term),
+                    Member.email.ilike(search_term)
+                )
+            )
+
         statement = (
             select(Member)
-            .where(Member.account_approved == False)
+            .where(*filters)
             .options(
-                selectinload(Member.posts_held),
                 selectinload(Member.subgroups)
             )
+            .order_by(Member.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         result = await session.exec(statement)
-        return result.all()
+
+        count_statement = select(func.count(Member.uid)).where(*filters)
+        total = (await session.exec(count_statement)).one()
+
+        return result.all(), total
 
     async def get_all_approved_members(
         self,
         session: AsyncSession,
+        search: str | None = None,
         status_filter: str = None,
         birth_month: int = None,
         limit: int = 50,
         offset: int = 0
     ):
+        filters = [Member.account_approved == True]
+
+        cleaned_search = search.strip() if search else None
+        if cleaned_search:
+            search_term = f"%{cleaned_search}%"
+            filters.append(
+                or_(
+                    Member.first_name.ilike(search_term),
+                    Member.last_name.ilike(search_term),
+                    Member.email.ilike(search_term)
+                )
+            )
+
+        if status_filter:
+            filters.append(Member.status == status_filter)
+        if birth_month:
+            filters.append(Member.birth_month == birth_month)
+
         statement = (
             select(Member)
-            .where(Member.account_approved == True)
+            .where(*filters)
             .options(
                 selectinload(Member.posts_held),
                 selectinload(Member.subgroups)
             )
+            .order_by(Member.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
 
-        if status_filter:
-            statement = statement.where(Member.status == status_filter)
-        if birth_month:
-            statement = statement.where(Member.birth_month == birth_month)
-
         result = await session.exec(statement)
-        return result.all()
+
+        count_statement = select(func.count(Member.uid)).where(*filters)
+        total = (await session.exec(count_statement)).one()
+
+        return result.all(), total
 
     async def get_upcoming_birthdays(self, session: AsyncSession, limit: int = 5):
         """
@@ -65,7 +110,6 @@ class AdminServices:
         to handle year wrap-around (e.g., showing January when in December).
         """
         from datetime import datetime, timezone, timedelta
-        from sqlalchemy import case
 
         # Lagos Time (UTC+1)
         lagos_tz = timezone(timedelta(hours=1))
@@ -203,30 +247,30 @@ class AdminServices:
 
     async def get_dashboard_stats(self, session: AsyncSession):
         """
-        Executes lightweight aggregate queries to get counts without loading
-        member objects into application memory.
+        Executes a single aggregate query for dashboard counts.
         """
-        stmt_pending = select(func.count(Member.uid)).where(Member.account_approved == False)
-        pending_count = (await session.exec(stmt_pending)).one()
-
-        stmt_approved = select(func.count(Member.uid)).where(Member.account_approved == True)
-        approved_count = (await session.exec(stmt_approved)).one()
-
-        stmt_students = select(func.count(Member.uid)).where(
-            Member.account_approved == True,
-            Member.status == Status.STUDENT
+        statement = select(
+            func.count(Member.uid).label("total_members"),
+            func.sum(case((Member.account_approved == False, 1), else_=0)).label("total_pending"),
+            func.sum(case((Member.account_approved == True, 1), else_=0)).label("total_approved"),
+            func.sum(
+                case(
+                    ((Member.account_approved == True) & (Member.status == Status.STUDENT), 1),
+                    else_=0
+                )
+            ).label("total_students"),
+            func.sum(
+                case(
+                    ((Member.account_approved == True) & (Member.status == Status.ALUMNI), 1),
+                    else_=0
+                )
+            ).label("total_alumni")
         )
-        student_count = (await session.exec(stmt_students)).one()
-
-        stmt_alumni = select(func.count(Member.uid)).where(
-            Member.account_approved == True,
-            Member.status == Status.ALUMNI
-        )
-        alumni_count = (await session.exec(stmt_alumni)).one()
+        result = (await session.exec(statement)).one()
 
         return {
-            "total_pending": pending_count,
-            "total_approved": approved_count,
-            "total_students": student_count,
-            "total_alumni": alumni_count
+            "total_pending": int(result.total_pending or 0),
+            "total_approved": int(result.total_approved or 0),
+            "total_students": int(result.total_students or 0),
+            "total_alumni": int(result.total_alumni or 0)
         }

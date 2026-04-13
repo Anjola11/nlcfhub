@@ -1,4 +1,4 @@
-from fastapi import Cookie, HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.utils.auth import decode_token
 from src.db.main import get_session
@@ -115,11 +115,12 @@ async def require_admin(
 ):
     """
     Dependency to strictly enforce Admin-only access.
-    Throws a 403 Forbidden if a standard member tries to access the route.
+    Reuses get_current_member, then verifies the user is an admin.
     """
-    if getattr(current_user, "role", None) != "admin":
+    if not (hasattr(current_user, "role") and current_user.role == "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized. Admin access required."
         )
+
     return current_user

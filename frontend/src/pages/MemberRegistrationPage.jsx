@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
-import { Camera, X, Check, Copy } from 'lucide-react';
+import { Camera, X, Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
@@ -39,6 +40,8 @@ export default function MemberRegistrationPage() {
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [newUid, setNewUid] = useState(null);
@@ -52,6 +55,7 @@ export default function MemberRegistrationPage() {
     phone: '',
     email: '',
     password: '',
+    confirmPassword: '',
     day: '',
     month: '',
     status: 'student',
@@ -74,17 +78,18 @@ export default function MemberRegistrationPage() {
   const copyBtnRef = useRef(null);
 
   useEffect(() => {
-    const role = window.localStorage.getItem('hub_role');
-    const token = window.localStorage.getItem('hub_token');
-    if (token && role === 'member') {
-      navigate('/profile');
-      return;
-    }
+    api.checkMemberSession()
+      .then(() => navigate('/profile'))
+      .catch(() => {});
 
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' });
-    if (formRef.current) {
-      staggerReveal(formRef.current, '.field-wrapper');
-    }
+    const ctx = gsap.context(() => {
+      gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' });
+      if (formRef.current) {
+        staggerReveal(formRef.current, '.field-wrapper');
+      }
+    });
+
+    return () => ctx.revert();
   }, [navigate]);
 
   const handlePhotoChange = (e) => {
@@ -94,20 +99,34 @@ export default function MemberRegistrationPage() {
 
   useEffect(() => {
     if (isSuccess && successContentRef.current) {
-      gsap.fromTo(successContentRef.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
-      
-      if (checkmarkPathRef.current) {
-        const length = checkmarkPathRef.current.getTotalLength() || 100;
-        gsap.fromTo(checkmarkPathRef.current, 
-          { strokeDashoffset: length, strokeDasharray: length }, 
-          { strokeDashoffset: 0, duration: 0.6, ease: 'power2.out', delay: 0.2 }
-        );
-      }
+      const ctx = gsap.context(() => {
+        gsap.fromTo(successContentRef.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+        
+        if (checkmarkPathRef.current) {
+          const length = checkmarkPathRef.current.getTotalLength() || 100;
+          gsap.fromTo(checkmarkPathRef.current, 
+            { strokeDashoffset: length, strokeDasharray: length }, 
+            { strokeDashoffset: 0, duration: 0.6, ease: 'power2.out', delay: 0.2 }
+          );
+        }
+      });
+      return () => ctx.revert();
     }
   }, [isSuccess]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.password || formData.password.length < 8) {
+      addToast({ message: 'Password must be at least 8 characters', type: 'error' });
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      addToast({ message: 'Passwords do not match', type: 'error' });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.register(formData);
@@ -125,6 +144,12 @@ export default function MemberRegistrationPage() {
     }
   };
 
+  const passwordHasMinLength = (formData.password || '').length >= 8;
+  const passwordsMatch =
+    !!formData.password &&
+    !!formData.confirmPassword &&
+    formData.password === formData.confirmPassword;
+
   const handleCopy = () => {
     navigator.clipboard.writeText(`https://nlcfhub.org/me/12345?token=abc`);
     flashGold(copyBtnRef.current);
@@ -133,6 +158,11 @@ export default function MemberRegistrationPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-start px-4 py-12 relative overflow-hidden" 
          style={{ background: 'radial-gradient(ellipse 800px 600px at 50% -100px, rgba(235,183,54,0.08), transparent), var(--bg-canvas)' }}>
+      <Helmet>
+        <title>Register - NLCF Hub</title>
+        <meta name="description" content="Create your NLCF Hub account to join the official birthday registry for New Life Campus Fellowship, OAU." />
+        <link rel="canonical" href="https://nlcfhub.vercel.app/register" />
+      </Helmet>
       
       <div 
         ref={cardRef} 
@@ -142,7 +172,7 @@ export default function MemberRegistrationPage() {
           <div ref={formContentRef}>
             <div className="flex flex-col items-center mb-[32px]">
               <div className="w-[48px] h-[48px] rounded-full overflow-hidden mb-2">
-                <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="NLCFOAU" className="w-full h-full object-cover bg-[var(--surface-navy)]" />
+                <img src="/nlcf_logo_no_bg.svg" alt="NLCFOAU" className="w-full h-full object-cover bg-[var(--surface-navy)]" />
               </div>
               <h1 className="font-display font-bold text-[28px] text-[var(--text-primary)] text-center max-w-[320px] leading-tight mb-1">
                 Register for NLCFOAU Hub
@@ -240,12 +270,53 @@ export default function MemberRegistrationPage() {
                 <div className="field-wrapper">
                   <Input 
                     label="PASSWORD" 
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Create a strong password"
                     value={formData.password}
                     onChange={e => setFormData({...formData, password: e.target.value})}
+                    rightNode={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
                     required
                   />
+                </div>
+              </div>
+
+              <div className="field-wrapper">
+                <Input 
+                  label="CONFIRM PASSWORD" 
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                  rightNode={
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  }
+                  required
+                />
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <div className={`flex items-center gap-2 font-sans text-[12px] ${passwordHasMinLength ? 'text-[var(--status-success)]' : 'text-[var(--text-muted)]'}`}>
+                    <Check size={14} />
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-2 font-sans text-[12px] ${passwordsMatch ? 'text-[var(--status-success)]' : 'text-[var(--text-muted)]'}`}>
+                    <Check size={14} />
+                    <span>Passwords match</span>
+                  </div>
                 </div>
               </div>
 

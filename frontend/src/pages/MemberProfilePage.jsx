@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
 import { LogOut, Camera, Save, Calendar, Phone, Hash, UserCircle } from 'lucide-react';
 import { Input } from '../components/ui/Input';
@@ -44,18 +45,10 @@ export default function MemberProfilePage() {
   const cardRef = useRef(null);
   const formRef = useRef(null);
 
-  const memberId = window.localStorage.getItem('hub_uid'); // Assume we store UID on login
-
 
   const joinYear = member.created_at ? new Date(member.created_at).getFullYear() : new Date().getFullYear();
 
   useEffect(() => {
-    const role = window.localStorage.getItem('hub_role');
-    if (role !== 'member') {
-      navigate('/login');
-      return;
-    }
-
     // Fetch full member profile from /me
     const fetchProfile = async () => {
       try {
@@ -80,23 +73,28 @@ export default function MemberProfilePage() {
         setMember(memberData);
         setOriginalMember(memberData);
       } catch (err) {
-        window.localStorage.removeItem('hub_role');
-        window.localStorage.removeItem('hub_token');
-        window.localStorage.removeItem('hub_uid');
         addToast({ message: err.message || 'Session expired. Please login again.', type: 'error' });
-        navigate('/login');
+        const message = (err.message || '').toLowerCase();
+        navigate(message.includes('pending approval') ? '/pending' : '/login');
       } finally {
         setPageLoading(false);
       }
     };
 
     fetchProfile();
-
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', clearProps: 'all' });
-    if (formRef.current) {
-      staggerReveal(formRef.current, '.form-item');
-    }
   }, [navigate]);
+
+  useEffect(() => {
+    if (!pageLoading) {
+      const ctx = gsap.context(() => {
+        gsap.fromTo(cardRef.current, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', clearProps: 'all' });
+        if (formRef.current) {
+          staggerReveal(formRef.current, '.form-item');
+        }
+      });
+      return () => ctx.revert();
+    }
+  }, [pageLoading]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -131,22 +129,23 @@ export default function MemberProfilePage() {
 
     setLoading(true);
     try {
-      const uid = memberId || member.uid;
+      const uid = member.uid;
       let currentMember = { ...member };
 
-      // 1. Upload Pending Profile Picture
-      if (pendingFiles.profile) {
-        const data = await api.uploadProfilePicture(uid, pendingFiles.profile);
-        currentMember.photoUrl = data.profile_picture_url;
+      // 1. Upload pending images in parallel (if provided)
+      const uploadTasks = [];
+      if (pendingFiles.profile) uploadTasks.push(api.uploadProfilePicture(uid, pendingFiles.profile));
+      if (pendingFiles.birthday) uploadTasks.push(api.uploadBirthdayPicture(uid, pendingFiles.birthday));
+
+      if (uploadTasks.length > 0) {
+        const uploadResults = await Promise.all(uploadTasks);
+        for (const uploadData of uploadResults) {
+          if (uploadData.profile_picture_url) currentMember.photoUrl = uploadData.profile_picture_url;
+          if (uploadData.birthday_picture_url) currentMember.birthdayPhotoUrl = uploadData.birthday_picture_url;
+        }
       }
 
-      // 2. Upload Pending Birthday Picture
-      if (pendingFiles.birthday) {
-        const data = await api.uploadBirthdayPicture(uid, pendingFiles.birthday);
-        currentMember.birthdayPhotoUrl = data.birthday_picture_url;
-      }
-
-      // 3. Update Text Details
+      // 2. Update text details
       await api.updateProfile(uid, currentMember);
       
       setMember(currentMember);
@@ -174,23 +173,85 @@ export default function MemberProfilePage() {
     return true;
   };
 
-  const handleProfilePictureSelect = (file) => {
+  const compressImage = (file, maxWidth = 1600, quality = 0.82) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        if (width > maxWidth) {
+          const ratio = maxWidth / width;
+          width = maxWidth;
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(imageUrl);
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(imageUrl);
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error("Could not process image"));
+      };
+
+      img.src = imageUrl;
+    });
+  };
+
+  const handleProfilePictureSelect = async (file) => {
     if (validateFile(file, 8)) {
-      setPendingFiles(prev => ({ ...prev, profile: file }));
-      setPreviews(prev => ({ ...prev, profile: URL.createObjectURL(file) }));
+      try {
+        const compressedFile = await compressImage(file, 1600, 0.82);
+        setPendingFiles(prev => ({ ...prev, profile: compressedFile }));
+        setPreviews(prev => ({ ...prev, profile: URL.createObjectURL(compressedFile) }));
+      } catch (err) {
+        addToast({ message: err.message || "Could not process image", type: "error" });
+      }
     }
   };
 
-  const handleBirthdayPictureSelect = (file) => {
+  const handleBirthdayPictureSelect = async (file) => {
     if (validateFile(file, 10)) {
-      setPendingFiles(prev => ({ ...prev, birthday: file }));
-      setPreviews(prev => ({ ...prev, birthday: URL.createObjectURL(file) }));
+      try {
+        const compressedFile = await compressImage(file, 2000, 0.84);
+        setPendingFiles(prev => ({ ...prev, birthday: compressedFile }));
+        setPreviews(prev => ({ ...prev, birthday: URL.createObjectURL(compressedFile) }));
+      } catch (err) {
+        addToast({ message: err.message || "Could not process image", type: "error" });
+      }
     }
   };
 
-  const handleLogout = () => {
-    window.localStorage.removeItem('hub_role');
-    window.localStorage.removeItem('hub_token');
+  const handleLogout = async () => {
+    await api.logout();
     navigate('/login');
     addToast({ message: "Logged out successfully", type: "success" });
   };
@@ -225,10 +286,14 @@ export default function MemberProfilePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-canvas)] py-[40px] px-4">
+      <Helmet>
+        <title>Profile - NLCF Hub</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <div className="max-w-[700px] mx-auto">
         <div className="flex items-center justify-between mb-[32px]">
           <div className="w-[40px] h-[40px] rounded-full overflow-hidden">
-            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="NLCFOAU" className="w-full h-full object-cover" />
+            <img src="/nlcf_logo_no_bg.svg" alt="NLCFOAU" className="w-full h-full object-cover" />
           </div>
           <button onClick={handleLogout} className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors font-sans text-[14px] font-semibold">
             <LogOut size={16} /> Sign out

@@ -15,11 +15,13 @@ export default function AdminMembersPage() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
 
   // Pagination State
   const [page, setPage] = useState(0);
   const [pageSize] = useState(50);
+  const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
   const [isAddEditModalOpen, setAddEditModalOpen] = useState(false);
@@ -29,14 +31,17 @@ export default function AdminMembersPage() {
 
   const bulkBarRef = useRef(null);
   
-  const loadMembers = async (currentPage = page) => {
+  const loadMembers = async (currentPage = page, search = debouncedSearch) => {
     setLoading(true);
     try {
       const offset = currentPage * pageSize;
-      const data = await api.getApprovedMembers({}, pageSize, offset);
+      const response = await api.getApprovedMembers({ search }, pageSize, offset);
+      const data = response.data || [];
+      const meta = response.meta || {};
       setMembers(data);
+      setTotal(meta.total || 0);
       // If we got fewer results than requested, we've hit the end
-      setHasMore(data.length === pageSize);
+      setHasMore((offset + data.length) < (meta.total || 0));
     } catch (err) {
       addToast({ message: err.message || 'Failed to load members', type: 'error' });
     } finally {
@@ -45,8 +50,17 @@ export default function AdminMembersPage() {
   };
 
   useEffect(() => {
-    loadMembers(page);
-  }, [page]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(0);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    loadMembers(page, debouncedSearch);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     if (selectedRows.length > 0 && bulkBarRef.current) {
@@ -64,11 +78,11 @@ export default function AdminMembersPage() {
   };
 
   const getMemberName = (m) => m.fullname || m.full_name || `${m.first_name} ${m.last_name}`;
-  const getSubgroups = (m) => m.subgroups?.map(s => s.name).join(', ') || '—';
-  const getPosts = (m) => m.posts_held?.map(p => p.name).join(', ') || '—';
+  const getSubgroups = (m) => m.subgroups?.map(s => s.name).join(', ') || '-';
+  const getPosts = (m) => m.posts_held?.map(p => p.name).join(', ') || '-';
 
   const bdayFormat = (month, day) => {
-    if (!month || !day) return '—';
+    if (!month || !day) return '-';
     const date = new Date(2000, month - 1, day);
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   };
@@ -77,7 +91,7 @@ export default function AdminMembersPage() {
     try {
       await api.deleteMember(uid);
       addToast({ message: `${name} has been removed`, type: 'success' });
-      loadMembers();
+      loadMembers(page, debouncedSearch);
     } catch (err) {
       addToast({ message: err.message || 'Failed to delete member', type: 'error' });
     }
@@ -90,22 +104,13 @@ export default function AdminMembersPage() {
         addToast({ message: 'Member updated successfully', type: 'success' });
       } else {
         // Add member is not yet wired (no backend route for admin-create)
-        addToast({ message: 'Member added (UI only — backend route pending)', type: 'success' });
+        addToast({ message: 'Member added (UI only - backend route pending)', type: 'success' });
       }
-      loadMembers();
+      loadMembers(page, debouncedSearch);
     } catch (err) {
       addToast({ message: err.message || 'Failed to save', type: 'error' });
     }
   };
-
-  // Client-side search filter
-  const filtered = members.filter(m => {
-    if (!searchQuery) return true;
-    const name = getMemberName(m).toLowerCase();
-    const email = (m.email || '').toLowerCase();
-    const q = searchQuery.toLowerCase();
-    return name.includes(q) || email.includes(q);
-  });
 
   return (
     <div className="relative">
@@ -139,7 +144,7 @@ export default function AdminMembersPage() {
               <tr className="bg-[var(--bg-canvas)] border-b border-[var(--border-subtle)]">
                 <th className="px-[20px] py-[12px] w-[60px]">
                   <input type="checkbox" className="w-[16px] h-[16px] accent-[var(--surface-gold)] rounded-[4px]" 
-                         checked={selectedRows.length === filtered.length && filtered.length > 0} 
+                         checked={selectedRows.length === members.length && members.length > 0} 
                          onChange={toggleSelectAll} />
                 </th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)] w-[70px]">Photo</th>
@@ -152,7 +157,7 @@ export default function AdminMembersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && !loading ? (
+              {members.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={8} className="py-16">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
@@ -163,7 +168,7 @@ export default function AdminMembersPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map((m) => (
+              ) : members.map((m) => (
                 <tr key={m.uid} className={`h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors ${selectedRows.includes(m.uid) ? 'bg-[rgba(235,183,54,0.08)] border-l-[3px] border-l-[var(--surface-gold)]' : 'border-l-[3px] border-l-transparent'}`}>
                   <td className="px-[20px]">
                     <input type="checkbox" className="w-[16px] h-[16px] accent-[var(--surface-gold)] rounded-[4px]" 
@@ -177,17 +182,17 @@ export default function AdminMembersPage() {
                     <div className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">{m.title ? `${m.title} ` : ''}{getMemberName(m)}</div>
                     <div className="font-sans text-[12px] text-[var(--text-secondary)]">{m.email}</div>
                   </td>
-                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone_number || '—'}</td>
+                  <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{m.phone_number || '-'}</td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-primary)]">{bdayFormat(m.birth_month, m.birth_day)}</td>
                   <td className="px-[20px] text-center">
                     <div className="flex flex-col items-center gap-1">
-                      {getSubgroups(m) !== '—' ? (
+                      {getSubgroups(m) !== '-' ? (
                         <Badge variant="subgroup">{getSubgroups(m)}</Badge>
                       ) : (
-                        <span className="text-[var(--text-secondary)]">—</span>
+                        <span className="text-[var(--text-secondary)]">-</span>
                       )}
                       
-                      {getPosts(m) !== '—' && (
+                      {getPosts(m) !== '-' && (
                         <div className="font-sans text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 w-fit">
                           {getPosts(m)}
                         </div>
@@ -221,7 +226,7 @@ export default function AdminMembersPage() {
         </div>
 
         <div className="flex items-center justify-between px-[20px] py-[16px] border-t border-[var(--border-subtle)] bg-[var(--surface-white)]">
-          <div className="font-sans text-[12px] text-[var(--text-secondary)]">Showing 1–{filtered.length} of {filtered.length} members</div>
+          <div className="font-sans text-[12px] text-[var(--text-secondary)]">Showing {members.length} of {total} members</div>
           <div className="flex items-center gap-1">
             <button className="w-[32px] h-[32px] rounded-[8px] flex items-center justify-center text-[var(--text-secondary)] disabled:opacity-50" disabled>
               <ChevronLeft size={16} />
@@ -240,7 +245,7 @@ export default function AdminMembersPage() {
       <div className="mt-6 flex items-center justify-between px-2">
         <div className="text-[13px] text-[var(--text-secondary)] font-sans">
           Page <span className="font-semibold text-[var(--text-primary)]">{page + 1}</span> 
-          {members.length > 0 && ` (Showing ${members.length} members)`}
+          {total > 0 && ` (Showing ${members.length} of ${total})`}
         </div>
         <div className="flex gap-2">
           <Button 

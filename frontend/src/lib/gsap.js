@@ -1,6 +1,4 @@
 import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-gsap.registerPlugin(ScrollTrigger);
 
 // Page-enter default: fade + translate Y
 export const pageEnter = (el) =>

@@ -1,0 +1,16 @@
+{
+  "name": "NLCF Hub",
+  "short_name": "NLCF Hub",
+  "description": "The official birthday registry for New Life Campus Fellowship, OAU",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/nlcf_logo_no_bg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

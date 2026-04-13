@@ -25,22 +25,33 @@ export default function AdminSettingsPage() {
   const emailRef = useRef(null);
 
   useEffect(() => {
-    if (pageRef.current) {
-      const sections = pageRef.current.querySelectorAll('.settings-section');
-      gsap.fromTo(sections, { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out', clearProps: 'all' });
-    }
+    const ctx = gsap.context(() => {
+      if (pageRef.current) {
+        const sections = pageRef.current.querySelectorAll('.settings-section');
+        gsap.fromTo(sections, { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out', clearProps: 'all' });
+      }
+    });
+    return () => ctx.revert();
   }, []);
 
   useEffect(() => {
+    let ctx;
     if (settings.whatsapp && whatsappRef.current) {
-      gsap.fromTo(whatsappRef.current, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out' });
+      ctx = gsap.context(() => {
+        gsap.fromTo(whatsappRef.current, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out' });
+      });
     }
+    return () => ctx?.revert();
   }, [settings.whatsapp]);
 
   useEffect(() => {
+    let ctx;
     if (settings.email && emailRef.current) {
-      gsap.fromTo(emailRef.current, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out' });
+      ctx = gsap.context(() => {
+        gsap.fromTo(emailRef.current, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out' });
+      });
     }
+    return () => ctx?.revert();
   }, [settings.email]);
 
   const handleSave = () => {

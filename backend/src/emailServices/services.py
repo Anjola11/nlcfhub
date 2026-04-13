@@ -1,5 +1,4 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.exc import DatabaseError
 from fastapi import HTTPException, status
 import uuid
 from pathlib import Path
@@ -56,7 +55,7 @@ class EmailServices:
             await session.commit()
             await session.refresh(new_otp)
             return new_otp
-        except DatabaseError:
+        except Exception:
             await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

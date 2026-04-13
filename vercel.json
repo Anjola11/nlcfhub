@@ -8,6 +8,22 @@
       "destination": "https://nlcfhub-65e7c825bac4.herokuapp.com/api/$1"
     },
     {
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap.xml"
+    },
+    {
+      "source": "/site.webmanifest",
+      "destination": "/site.webmanifest"
+    },
+    {
+      "source": "/nlcf_logo_no_bg.svg",
+      "destination": "/nlcf_logo_no_bg.svg"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -13,7 +13,6 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const isClosing = useRef(false);
   const { addToast } = useToast();
   
-  const [downloading, setDownloading] = useState(false);
   const scopeRef = useRef(null);
 
   useEffect(() => {
@@ -69,6 +68,8 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
     flashGold(e.currentTarget);
     addToast({ message: successMessage, type: 'success' });
   };
+
+  const downloadPhotoUrl = member.download_birthday_picture_url || member.download_profile_picture_url || member.photoUrl;
 
   if (!isOpen || !member) return null;
 
@@ -135,14 +136,26 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
 
         <div className="p-[24px] pt-[16px]">
           <div className="grid grid-cols-2 gap-[10px] mb-4">
-            <button 
-              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--surface-navy)] text-white disabled:opacity-40 transition-colors"
-              disabled={!member.photoUrl || downloading}
-              onClick={() => setDownloading(true)}
-            >
-              {downloading ? <span className="animate-spin w-4 h-4 rounded-full border-2 border-white/30 border-t-white" /> : <Download size={18} />}
-              {member.photoUrl ? "Download Photo" : "No photo"}
-            </button>
+            {downloadPhotoUrl ? (
+              <a
+                href={downloadPhotoUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--surface-navy)] text-white disabled:opacity-40 transition-colors"
+              >
+                <Download size={18} />
+                Download Photo
+              </a>
+            ) : (
+              <button
+                className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--surface-navy)] text-white disabled:opacity-40 transition-colors"
+                disabled
+              >
+                <Download size={18} />
+                No photo
+              </button>
+            )}
             <button 
               className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors"
               onClick={(e) => copyToClipboard(member.full_name, e, "Name copied")}

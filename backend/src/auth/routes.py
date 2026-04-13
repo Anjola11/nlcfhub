@@ -55,16 +55,20 @@ async def create_user(
         f"{member_input.first_name} {member_input.last_name}"
     )
 
+    # Extract tokens for cookies only — never expose in response body
+    access_token = member_data.pop("access_token")
+    refresh_token = member_data.pop("refresh_token")
+
     response.set_cookie(
         key="access_token",
-        value=member_data.get("access_token"),
+        value=access_token,
         **cookie_settings,
         max_age=int(access_token_expiry.total_seconds())
     )
 
     response.set_cookie(
         key="refresh_token",
-        value=member_data.get("refresh_token"),
+        value=refresh_token,
         **cookie_settings,
         max_age=int(refresh_token_expiry.total_seconds())
     )
@@ -179,16 +183,20 @@ async def login(
     logger.info(f"Login attempt for email: {login_input.email}")
     member_data = await auth_services.login_member(login_input, session)
 
+    # Extract tokens for cookies only — never expose in response body
+    access_token = member_data.pop("access_token")
+    refresh_token = member_data.pop("refresh_token")
+
     response.set_cookie(
         key="access_token",
-        value=member_data.get("access_token"),
+        value=access_token,
         **cookie_settings,
         max_age=int(access_token_expiry.total_seconds())
     )
 
     response.set_cookie(
         key="refresh_token",
-        value=member_data.get("refresh_token"),
+        value=refresh_token,
         **cookie_settings,
         max_age=int(refresh_token_expiry.total_seconds())
     )
@@ -256,16 +264,20 @@ async def admin_login(
     logger.info(f"Admin login attempt for email: {login_input.email}")
     admin_data = await auth_services.admin_login(login_input, session)
 
+    # Extract tokens for cookies only — never expose in response body
+    access_token = admin_data.pop("access_token")
+    refresh_token = admin_data.pop("refresh_token")
+
     response.set_cookie(
         key="access_token",
-        value=admin_data.get("access_token"),
+        value=access_token,
         **cookie_settings,
         max_age=int(access_token_expiry.total_seconds())
     )
 
     response.set_cookie(
         key="refresh_token",
-        value=admin_data.get("refresh_token"),
+        value=refresh_token,
         **cookie_settings,
         max_age=int(refresh_token_expiry.total_seconds())
     )

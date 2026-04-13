@@ -10,7 +10,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException, status, UploadFile, Request, Response
 from fastapi import BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.exc import DatabaseError
 from src.admin.models import Post, Subgroup
 from src.utils.logger import logger
 from src.utils.auth import generate_password_hash, verify_password_hash, create_token, decode_token
@@ -100,35 +99,29 @@ class AuthServices:
                 )
 
         # Attach relations after all queries complete
-        # Use run_sync to prevent MissingGreenlet on relationship assignment
-        session.add(new_member)
-
-        def _set_relations(sync_session):
-            if posts:
-                new_member.posts_held = posts
-            if subgroups:
-                new_member.subgroups = subgroups
-
-        await session.run_sync(lambda s: _set_relations(s))
+        if posts:
+            new_member.posts_held = posts
+        if subgroups:
+            new_member.subgroups = subgroups
 
         try:
             session.add(new_member)
             await session.commit()
             await session.refresh(new_member)
 
-            # Generate tokens automatically upon signup
+            # Generate tokens for cookie-based auth
             member_dict = new_member.model_dump()
-            access_token = create_token(member_dict, TokenType="access") if False else create_token(member_dict, token_type="access")
-            refresh_token = create_token(member_dict, TokenType="refresh") if False else create_token(member_dict, token_type="refresh")
+            access_token = create_token(member_dict, token_type="access")
+            refresh_token = create_token(member_dict, token_type="refresh")
             
             return {
                 **member_dict,
+                'profile_picture_url': new_member.profile_picture_url,
                 'access_token': access_token,
                 'refresh_token': refresh_token,
-                'profile_picture_url': new_member.profile_picture_url
             }
 
-        except DatabaseError:
+        except Exception:
             await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -198,7 +191,7 @@ class AuthServices:
                 await session.refresh(member)
                 return member
 
-            except DatabaseError:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -212,7 +205,7 @@ class AuthServices:
                 return {
                     "uid": latest_otp_record.uid,
                 }
-            except DatabaseError:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -332,6 +325,7 @@ class AuthServices:
         refresh_token = create_token(member_dict, token_type="refresh")
         
         # Login returns lightweight data — full profile comes from /me
+        # Tokens are set as cookies by the route, not exposed in response body
         return {
             'uid': str(member.uid),
             'first_name': member.first_name,
@@ -362,17 +356,17 @@ class AuthServices:
 
         admin_dict = admin.model_dump()
         admin_dict["role"] = "admin"
-        # Using correct custom util kwargs signature
         access_token = create_token(admin_dict, token_type="access")
         refresh_token = create_token(admin_dict, token_type="refresh")
         
-        admin_details = {
-            **admin_dict, 
+        # Tokens are set as cookies by the route, not exposed in response body
+        return {
+            'uid': str(admin.uid),
+            'email': admin.email,
+            'role': 'admin',
             'access_token': access_token,
             'refresh_token': refresh_token,
         }
-        
-        return admin_details
 
     async def check_admin(self, current_user):
         if hasattr(current_user, "role") and current_user.role == "admin":
@@ -423,7 +417,7 @@ class AuthServices:
             await session.commit()
             await session.refresh(member)
             return member
-        except DatabaseError:
+        except Exception:
             await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -456,7 +450,7 @@ class AuthServices:
             await session.refresh(member)
 
             return member
-        except DatabaseError:
+        except Exception:
             await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

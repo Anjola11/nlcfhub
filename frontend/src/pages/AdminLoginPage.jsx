@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -18,18 +19,18 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // If already logged in as admin, redirect
-    const token = window.localStorage.getItem('hub_token');
-    const role = window.localStorage.getItem('hub_role');
-    if (token && role === 'admin') {
-      navigate('/console-7x');
-      return;
-    }
+    api.checkAdminSession()
+      .then(() => navigate('/console-7x'))
+      .catch(() => {});
 
-    if (leftColRef.current) {
-      const els = leftColRef.current.querySelectorAll('.stagger-item');
-      gsap.fromTo(els, { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.12, duration: 0.6, clearProps: 'all' });
-    }
+    const ctx = gsap.context(() => {
+      if (leftColRef.current) {
+        const els = leftColRef.current.querySelectorAll('.stagger-item');
+        gsap.fromTo(els, { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.12, duration: 0.6, clearProps: 'all' });
+      }
+    });
+
+    return () => ctx.revert();
   }, [navigate]);
 
   const onSubmit = async (e) => {
@@ -37,10 +38,7 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.adminLogin(email, password);
-      window.localStorage.setItem('hub_token', res.token);
-      window.localStorage.setItem('hub_uid', res.uid);
-      window.localStorage.setItem('hub_role', 'admin');
+      await api.adminLogin(email, password);
       navigate('/console-7x');
     } catch (err) {
       setError(err.message || 'Incorrect email or password.');
@@ -52,13 +50,17 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex w-full">
+      <Helmet>
+        <title>Admin Login - NLCF Hub</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <div 
         ref={leftColRef}
         className="hidden lg:flex w-1/2 bg-[var(--surface-navy)] relative flex-col items-center justify-start pt-[20vh]"
       >
         <div className="flex flex-col items-center z-10 w-full max-w-[320px]">
           <div className="w-[80px] h-[80px] rounded-full border-[3px] border-white overflow-hidden mb-4 stagger-item bg-white">
-            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+            <img src="/nlcf_logo_no_bg.svg" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display font-extrabold text-[40px] text-[var(--text-inverse)] tracking-[-0.01em] leading-none mb-2 stagger-item">
             NLCFHUB
@@ -79,7 +81,7 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex justify-center mb-6 w-full">
             <div className="w-[40px] h-[40px] rounded-full overflow-hidden bg-[var(--surface-navy)] border-[2px] border-white">
-              <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="Logo" className="w-full h-full object-cover" />
+              <img src="/nlcf_logo_no_bg.svg" alt="Logo" className="w-full h-full object-cover" />
             </div>
           </div>
           <h2 className="font-display font-bold text-[28px] text-[var(--text-primary)] mb-1">Admin Sign In</h2>

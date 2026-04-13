@@ -122,6 +122,52 @@ class Member(SQLModel, table=True):
         )
 
         return url
+
+    @computed_field
+    @property
+    def download_birthday_picture_url(self) -> Optional[str]:
+        picture = self.birthday_picture_public_id or self.profile_picture_public_id
+
+        if not picture:
+            return None
+
+        filename = f"{self.first_name}_{self.last_name}_Birthday".replace(" ", "_")
+
+        url, options = cloudinary.utils.cloudinary_url(
+            picture,
+            width=1000,
+            height=1200,
+            crop="limit",
+            effect="improve:outdoor",
+            quality="auto:good",
+            fetch_format="auto",
+            dpr="auto",
+            flags=f"attachment:{filename}"
+        )
+
+        return url
+
+    @computed_field
+    @property
+    def download_profile_picture_url(self) -> Optional[str]:
+        if not self.profile_picture_public_id:
+            return None
+
+        filename = f"{self.first_name}_{self.last_name}_Profile".replace(" ", "_")
+
+        url, options = cloudinary.utils.cloudinary_url(
+            self.profile_picture_public_id,
+            width=500,
+            height=500,
+            crop="thumb",
+            gravity="faces",
+            quality="auto:best",
+            fetch_format="auto",
+            dpr="auto",
+            flags=f"attachment:{filename}"
+        )
+
+        return url
     
     @computed_field
     @property

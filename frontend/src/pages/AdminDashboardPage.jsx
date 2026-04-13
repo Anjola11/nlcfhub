@@ -17,12 +17,15 @@ function StatCard({ label, value, sub, icon: Icon, dark = false }) {
   useEffect(() => {
     if (value !== undefined && counterRef.current) {
       const obj = { val: 0 };
-      gsap.to(obj, { 
-        val: value, 
-        duration: 1.2, 
-        ease: 'power2.out',
-        onUpdate: () => { if (counterRef.current) counterRef.current.textContent = Math.round(obj.val); }
+      const ctx = gsap.context(() => {
+        gsap.to(obj, { 
+          val: value, 
+          duration: 1.2, 
+          ease: 'power2.out',
+          onUpdate: () => { if (counterRef.current) counterRef.current.textContent = Math.round(obj.val); }
+        });
       });
+      return () => ctx.revert();
     }
   }, [value]);
 
@@ -56,24 +59,28 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Fetch real approved members for birthday data
-        let upcomingBirthdayMembers = [];
-        try {
-          // Fetch only the top 5 upcoming birthdays from the database
-          upcomingBirthdayMembers = await api.getUpcomingBirthdays(5);
-        } catch (e) {
-          console.warn('Could not fetch upcoming birthdays:', e);
+        const [birthdaysResult, statsResult, logsResult] = await Promise.allSettled([
+          api.getUpcomingBirthdays(5),
+          api.getStats(),
+          api.getLogs()
+        ]);
+
+        const upcomingBirthdayMembers = birthdaysResult.status === 'fulfilled' ? birthdaysResult.value : [];
+        if (birthdaysResult.status === 'rejected') {
+          console.warn('Could not fetch upcoming birthdays:', birthdaysResult.reason);
         }
 
-        // Fetch real stats from the database-aggregated endpoint
-        let s = { total_approved: 0, total_students: 0, total_alumni: 0, total_pending: 0 };
-        try {
-          s = await api.getStats();
-        } catch (e) {
-          console.warn('Could not fetch stats:', e);
+        const s = statsResult.status === 'fulfilled'
+          ? statsResult.value
+          : { total_approved: 0, total_students: 0, total_alumni: 0, total_pending: 0 };
+        if (statsResult.status === 'rejected') {
+          console.warn('Could not fetch stats:', statsResult.reason);
         }
 
-        const l = await api.getLogs();
+        const l = logsResult.status === 'fulfilled' ? logsResult.value : [];
+        if (logsResult.status === 'rejected') {
+          console.warn('Could not fetch logs:', logsResult.reason);
+        }
 
         setStats(s);
         
@@ -97,6 +104,8 @@ export default function AdminDashboardPage() {
             posts: x.posts_held?.map(p => p.name).join(', ') || '',
             member_type: x.status === 'student' ? 'active' : 'alumni',
             photoUrl: x.birthday_picture_url || x.profile_picture_url,
+            download_birthday_picture_url: x.download_birthday_picture_url,
+            download_profile_picture_url: x.download_profile_picture_url,
             phone: x.phone_number || '—',
             birthday: new Date(2000, (x.birth_month || 1) - 1, x.birth_day || 1).toISOString(),
           };
@@ -106,11 +115,15 @@ export default function AdminDashboardPage() {
         setLogs(l);
         setLoading(false);
         
-        setTimeout(() => {
-          if (bentoRef.current) {
-            staggerReveal(bentoRef.current, ':scope > .bento-cell');
-          }
-        }, 50);
+        const ctx = gsap.context(() => {
+          setTimeout(() => {
+            if (bentoRef.current) {
+              staggerReveal(bentoRef.current, ':scope > .bento-cell');
+            }
+          }, 50);
+        });
+        
+        return () => ctx.revert();
       } catch (err) {
         console.error('Dashboard load error:', err);
         setLoading(false);

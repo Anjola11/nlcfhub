@@ -18,7 +18,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className }) {
       
       const isMobile = window.innerWidth < 768;
       if (isMobile) {
-        gsap.fromTo(panelRef.current, { y: '100%', opacity: 1 }, { y: '0%', duration: 0.4, Math: 'power3.out' });
+        gsap.fromTo(panelRef.current, { y: '100%', opacity: 1 }, { y: '0%', duration: 0.4, ease: 'power3.out' });
       } else {
         gsap.fromTo(panelRef.current, { scale: 0.94, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: 'back.out(1.5)' });
       }

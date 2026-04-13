@@ -22,11 +22,6 @@ export function TopBar({ onMenuClick }) {
       </div>
       
       <div className="flex items-center gap-3">
-        {pageTitle === 'Members' && (
-          <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--bg-canvas-dim)] text-[var(--text-secondary)] transition-colors">
-            <Search size={20} />
-          </button>
-        )}
         <Avatar size="sm" name="Admin" />
       </div>
     </div>

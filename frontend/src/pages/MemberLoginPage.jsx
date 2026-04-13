@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { gsap } from 'gsap';
 import { Mail, Lock } from 'lucide-react';
 import { Input } from '../components/ui/Input';
@@ -21,18 +22,18 @@ export default function MemberLoginPage() {
   const formRef = useRef(null);
 
   useEffect(() => {
-    // If already logged in, redirect
-    const token = window.localStorage.getItem('hub_token');
-    const role = window.localStorage.getItem('hub_role');
-    if (token && role === 'member') {
-      navigate('/profile');
-      return;
-    }
+    api.checkMemberSession()
+      .then(() => navigate('/profile'))
+      .catch(() => {});
 
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' });
-    if (formRef.current) {
-      staggerReveal(formRef.current, '.stagger-item');
-    }
+    const ctx = gsap.context(() => {
+      gsap.fromTo(cardRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' });
+      if (formRef.current) {
+        staggerReveal(formRef.current, '.stagger-item');
+      }
+    });
+
+    return () => ctx.revert();
   }, [navigate]);
 
   const onSubmit = async (e) => {
@@ -42,16 +43,10 @@ export default function MemberLoginPage() {
     
     try {
       const res = await api.login(email, password);
-      
-      // Store token and UID for cookie-based auth
-      window.localStorage.setItem('hub_token', res.token);
-      window.localStorage.setItem('hub_uid', res.uid);
 
       if (!res.account_approved) {
-        window.localStorage.setItem('hub_role', 'pending');
         navigate('/pending');
       } else {
-         window.localStorage.setItem('hub_role', 'member');
          navigate('/profile');
       }
     } catch (err) {
@@ -79,6 +74,11 @@ export default function MemberLoginPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden" 
          style={{ background: 'radial-gradient(ellipse 800px 600px at 50% -100px, rgba(235,183,54,0.08), transparent), var(--bg-canvas)' }}>
+      <Helmet>
+        <title>Login - NLCF Hub</title>
+        <meta name="description" content="Login to NLCF Hub, the official birthday registry for New Life Campus Fellowship, OAU." />
+        <link rel="canonical" href="https://nlcfhub.vercel.app/login" />
+      </Helmet>
       
       <div 
         ref={cardRef} 
@@ -86,7 +86,7 @@ export default function MemberLoginPage() {
       >
         <div className="flex flex-col items-center mb-[32px]">
           <div className="w-[48px] h-[48px] rounded-full overflow-hidden mb-4">
-            <img src="https://ui-avatars.com/api/?name=Hub&background=1A1C3B&color=fff" alt="NLCFOAU" className="w-full h-full object-cover" />
+            <img src="/nlcf_logo_no_bg.svg" alt="NLCFOAU" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display font-bold text-[28px] text-[var(--text-primary)] text-center mb-1">
             Welcome back

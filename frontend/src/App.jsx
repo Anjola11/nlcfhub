@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './hooks/useToast';
 import AdminShell from './components/layout/AdminShell';
+import { AdminRoute, MemberRoute } from './components/auth/RouteGuards';
 
 import MemberRegistrationPage from './pages/MemberRegistrationPage';
 import MemberLoginPage from './pages/MemberLoginPage';
@@ -26,7 +27,14 @@ export default function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/register" element={<MemberRegistrationPage />} />
           <Route path="/login" element={<MemberLoginPage />} />
-          <Route path="/profile" element={<MemberProfilePage />} />
+          <Route
+            path="/profile"
+            element={
+              <MemberRoute>
+                <MemberProfilePage />
+              </MemberRoute>
+            }
+          />
           <Route path="/pending" element={<MemberPendingPage />} />
           <Route path="/verify-otp" element={<OTPVerificationPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -34,7 +42,14 @@ export default function App() {
           
           <Route path="/console-7x/login" element={<AdminLoginPage />} />
           
-          <Route path="/console-7x" element={<AdminShell />}>
+          <Route
+            path="/console-7x"
+            element={
+              <AdminRoute>
+                <AdminShell />
+              </AdminRoute>
+            }
+          >
             <Route index element={<AdminDashboardPage />} />
             <Route path="members" element={<AdminMembersPage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />

@@ -1,3 +1,9 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
+  "rewrites": [
+    { "source": "/robots.txt", "destination": "/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
+    { "source": "/site.webmanifest", "destination": "/site.webmanifest" },
+    { "source": "/nlcf_logo_no_bg.svg", "destination": "/nlcf_logo_no_bg.svg" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
 }
