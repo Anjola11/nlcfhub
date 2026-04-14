@@ -28,24 +28,16 @@ class AdminServices:
         limit: int = 25,
         offset: int = 0
     ):
-        filters = [Member.account_approved == False]
+       
 
-        cleaned_search = search.strip() if search else None
-        if cleaned_search:
-            search_term = f"%{cleaned_search}%"
-            filters.append(
-                or_(
-                    Member.first_name.ilike(search_term),
-                    Member.last_name.ilike(search_term),
-                    Member.email.ilike(search_term)
-                )
-            )
+
 
         statement = (
             select(Member)
-            .where(*filters)
+            .where(Member.account_approved == False)
             .options(
-                selectinload(Member.subgroups)
+                selectinload(Member.subgroups),
+                selectinload(Member.posts_held)
             )
             .order_by(Member.created_at.desc())
             .limit(limit)
@@ -53,7 +45,7 @@ class AdminServices:
         )
         result = await session.exec(statement)
 
-        count_statement = select(func.count(Member.uid)).where(*filters)
+        count_statement = select(func.count(Member.uid)).where(Member.account_approved == False)
         total = (await session.exec(count_statement)).one()
 
         return result.all(), total

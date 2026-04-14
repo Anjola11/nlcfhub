@@ -104,16 +104,14 @@ async def get_subgroups(
 
 @admin_router.get('/members/pending', status_code=status.HTTP_200_OK)
 async def get_pending_members(
-    search: str | None = Query(None),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
     admin_services: AdminServices = Depends(get_admin_services)
 ):
-    logger.info(f"Admin fetching pending members (search={search}, limit={limit}, offset={offset})")
+    logger.info(f"Admin fetching pending members, limit={limit}, offset={offset})")
     members, total = await admin_services.get_all_pending_members(
         session,
-        search=search,
         limit=limit,
         offset=offset
     )
