@@ -365,6 +365,18 @@ export const api = {
     return json.data;
   },
 
+  async createMemberByAdmin(data) {
+    const { res, json } = await requestJson('/api/v1/admin/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      scope: 'admin',
+    });
+
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to create member');
+    return json.data;
+  },
+
   async getStats() {
     const { res, json } = await requestJson('/api/v1/admin/stats', {
       scope: 'admin',

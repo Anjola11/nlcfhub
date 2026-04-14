@@ -104,8 +104,6 @@ export default function AdminDashboardPage() {
             posts: x.posts_held?.map(p => p.name).join(', ') || '',
             member_type: x.status === 'student' ? 'active' : 'alumni',
             photoUrl: x.birthday_picture_url || x.profile_picture_url,
-            download_birthday_picture_url: x.download_birthday_picture_url,
-            download_profile_picture_url: x.download_profile_picture_url,
             phone: x.phone_number || '—',
             birthday: new Date(2000, (x.birth_month || 1) - 1, x.birth_day || 1).toISOString(),
           };

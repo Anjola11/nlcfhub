@@ -103,8 +103,8 @@ export default function AdminMembersPage() {
         await api.editMember(editingMember.uid, data);
         addToast({ message: 'Member updated successfully', type: 'success' });
       } else {
-        // Add member is not yet wired (no backend route for admin-create)
-        addToast({ message: 'Member added (UI only - backend route pending)', type: 'success' });
+        await api.createMemberByAdmin(data);
+        addToast({ message: 'Member added successfully', type: 'success' });
       }
       loadMembers(page, debouncedSearch);
     } catch (err) {

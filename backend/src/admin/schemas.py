@@ -17,3 +17,18 @@ class MemberAdminUpdate(SQLModel):
     account_approved: Optional[bool] = None
     post_ids: Optional[List[uuid.UUID]] = None
     subgroup_ids: Optional[List[uuid.UUID]] = None
+
+
+class MemberAdminCreate(SQLModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone_number: str
+    birth_day: int
+    birth_month: int
+    title: Optional[Title] = None
+    status: Status
+    password: str
+    confirm_password: str
+    post_ids: Optional[List[uuid.UUID]] = None
+    subgroup_ids: Optional[List[uuid.UUID]] = None

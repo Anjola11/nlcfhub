@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
 import { Button } from '../ui/Button';
 import { api } from '../../lib/api';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Eye, EyeOff } from 'lucide-react';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -41,6 +41,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     phone: '',
     day: '',
     month: '',
@@ -48,8 +49,14 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
     title: '',
     subgroupIds: [],
     postIds: [],
-    isActiveStatus: true
+    isActiveStatus: true,
+    password: '',
+    confirmPassword: ''
   });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
 
   // Original data snapshot (for change comparison)
   const [originalData, setOriginalData] = useState(null);
@@ -75,6 +82,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
       const data = {
         firstName: member.first_name || '',
         lastName: member.last_name || '',
+        email: member.email || '',
         phone: member.phone_number || '',
         day: member.birth_day ? String(member.birth_day).padStart(2, '0') : '',
         month: member.birth_month ? String(member.birth_month).padStart(2, '0') : '',
@@ -82,7 +90,9 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
         title: member.title || '',
         subgroupIds: currentSubgroupIds,
         postIds: currentPostIds,
-        isActiveStatus: member.account_approved !== false
+        isActiveStatus: member.account_approved !== false,
+        password: '',
+        confirmPassword: ''
       };
 
       setFormData(data);
@@ -91,6 +101,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
       const empty = {
         firstName: '',
         lastName: '',
+        email: '',
         phone: '',
         day: '',
         month: '',
@@ -98,13 +109,45 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
         title: '',
         subgroupIds: [],
         postIds: [],
-        isActiveStatus: true
+        isActiveStatus: true,
+        password: '',
+        confirmPassword: ''
       };
       setFormData(empty);
       setOriginalData(null);
     }
+    setGeneratedPassword('');
     setShowConfirm(false);
   }, [isOpen, member]);
+
+  const generateTemporaryPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+    const passwordLength = 12;
+    let password = '';
+
+    for (let i = 0; i < passwordLength; i += 1) {
+      const index = Math.floor(Math.random() * chars.length);
+      password += chars[index];
+    }
+
+    setGeneratedPassword(password);
+    setFormData((prev) => ({
+      ...prev,
+      password,
+      confirmPassword: password,
+    }));
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+  };
+
+  const copyGeneratedPassword = async () => {
+    if (!generatedPassword) return;
+    try {
+      await navigator.clipboard.writeText(generatedPassword);
+    } catch {
+      // Clipboard copy can silently fail on some browsers/security contexts.
+    }
+  };
 
   // When status changes to alumni, clear subgroups and posts
   const handleStatusChange = (newStatus) => {
@@ -131,6 +174,8 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
       diff.push({ label: 'First Name', from: originalData.firstName, to: formData.firstName });
     if (formData.lastName !== originalData.lastName) 
       diff.push({ label: 'Last Name', from: originalData.lastName, to: formData.lastName });
+    if (formData.email !== originalData.email)
+      diff.push({ label: 'Email', from: originalData.email || '—', to: formData.email || '—' });
     if (formData.phone !== originalData.phone) 
       diff.push({ label: 'Phone', from: originalData.phone || '—', to: formData.phone || '—' });
     if (formData.day !== originalData.day || formData.month !== originalData.month) 
@@ -175,6 +220,27 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   // Shows the confirmation dialog before submitting
   const handleReviewChanges = (e) => {
     e.preventDefault();
+
+    if (!isEdit) {
+      if (!formData.email) {
+        setChanges([{ label: 'Validation', value: 'Email is required for creating a member.' }]);
+        setShowConfirm(true);
+        return;
+      }
+
+      if (!formData.password || formData.password.length < 8) {
+        setChanges([{ label: 'Validation', value: 'Password must be at least 8 characters.' }]);
+        setShowConfirm(true);
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setChanges([{ label: 'Validation', value: 'Passwords do not match.' }]);
+        setShowConfirm(true);
+        return;
+      }
+    }
+
     const computed = computeChanges();
     setChanges(computed);
     setShowConfirm(true);
@@ -184,19 +250,33 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   const handleConfirm = () => {
     setShowConfirm(false);
     if (onSubmit) {
-      // Build the payload to match MemberAdminUpdate schema
-      const payload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone_number: formData.phone || undefined,
-        birth_day: formData.day ? parseInt(formData.day) : undefined,
-        birth_month: formData.month ? parseInt(formData.month) : undefined,
-        status: formData.status,
-        title: formData.status === 'alumni' ? (formData.title || undefined) : undefined,
-        subgroup_ids: formData.status === 'alumni' ? [] : formData.subgroupIds,
-        post_ids: formData.status === 'alumni' ? [] : formData.postIds,
-        account_approved: formData.isActiveStatus,
-      };
+      const payload = isEdit
+        ? {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone_number: formData.phone || undefined,
+            birth_day: formData.day ? parseInt(formData.day) : undefined,
+            birth_month: formData.month ? parseInt(formData.month) : undefined,
+            status: formData.status,
+            title: formData.status === 'alumni' ? (formData.title || undefined) : undefined,
+            subgroup_ids: formData.status === 'alumni' ? [] : formData.subgroupIds,
+            post_ids: formData.status === 'alumni' ? [] : formData.postIds,
+            account_approved: formData.isActiveStatus,
+          }
+        : {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email,
+            phone_number: formData.phone,
+            birth_day: parseInt(formData.day),
+            birth_month: parseInt(formData.month),
+            status: formData.status,
+            title: formData.status === 'alumni' ? (formData.title || null) : null,
+            subgroup_ids: formData.status === 'alumni' ? [] : formData.subgroupIds,
+            post_ids: formData.status === 'alumni' ? [] : formData.postIds,
+            password: formData.password,
+            confirm_password: formData.confirmPassword,
+          };
       onSubmit(payload);
     }
     onClose();
@@ -285,6 +365,16 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
           leftNode={<div className="bg-[var(--bg-canvas-dim)] border-r border-[var(--border-subtle)] h-full flex items-center px-3 rounded-l-[13px] font-mono text-[14px] text-[var(--text-secondary)]">+234</div>}
           className="pl-2"
         />
+
+        {!isEdit && (
+          <Input
+            label="EMAIL"
+            type="email"
+            value={formData.email}
+            onChange={e => setFormData({...formData, email: e.target.value})}
+            required
+          />
+        )}
 
         <div className="flex flex-col gap-1.5 w-full">
           <label className="font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-primary)]">BIRTHDAY</label>
@@ -383,6 +473,65 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
                 ))}
               </div>
             </div>
+          </>
+        )}
+
+        {!isEdit && (
+          <>
+            <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-sans font-semibold text-[14px] text-[var(--text-primary)]">Temporary password</p>
+                  <p className="font-sans text-[12px] text-[var(--text-secondary)]">Generate and share with the new member. It appears here once.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={generateTemporaryPassword}>
+                  Generate Password
+                </Button>
+              </div>
+
+              {generatedPassword && (
+                <div className="mt-3 rounded-[10px] bg-[var(--surface-white)] border border-[var(--border-subtle)] px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[13px] text-[var(--text-primary)] break-all">{generatedPassword}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={copyGeneratedPassword}>Copy</Button>
+                </div>
+              )}
+            </div>
+
+            <Input
+              label="PASSWORD"
+              type={showPassword ? "text" : "password"}
+              value={formData.password}
+              onChange={e => setFormData({...formData, password: e.target.value})}
+              rightNode={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
+              required
+            />
+
+            <Input
+              label="CONFIRM PASSWORD"
+              type={showConfirmPassword ? "text" : "password"}
+              value={formData.confirmPassword}
+              onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+              rightNode={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
+              required
+            />
           </>
         )}
 

@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { useToast } from '../hooks/useToast';
 import { gsap } from 'gsap';
 import { staggerReveal } from '../lib/gsap';
+import { PendingRegistrationReviewModal } from '../components/features/PendingRegistrationReviewModal';
 
 export default function AdminApprovalsPage() {
   const [pending, setPending] = useState([]);
@@ -19,6 +20,7 @@ export default function AdminApprovalsPage() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [actionLoading, setActionLoading] = useState(null); // uid of member being acted on
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
   const { addToast } = useToast();
   
   const tableRef = useRef(null);
@@ -92,6 +94,10 @@ export default function AdminApprovalsPage() {
   const getSubgroups = (p) => p.subgroups?.map(s => s.name).join(', ') || '—';
   const getPosts = (p) => p.posts_held?.map(post => post.name).join(', ') || '—';
 
+  const handleOpenSubmission = (member) => {
+    setSelectedSubmission(member);
+  };
+
   return (
     <div className="relative">
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6">
@@ -118,6 +124,7 @@ export default function AdminApprovalsPage() {
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)] w-[60px]">Applicant</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Name & Email</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Subgroup</th>
+                <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Status</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Phone</th>
                 <th className="px-[20px] py-[12px] font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Date applied</th>
                 <th className="px-[20px] py-[12px] text-right font-sans text-[12px] font-semibold tracking-[0.05em] uppercase text-[var(--text-secondary)]">Actions</th>
@@ -135,7 +142,11 @@ export default function AdminApprovalsPage() {
                   </td>
                 </tr>
               ) : pending.map((p) => (
-                <tr key={p.uid} className="h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors border-l-[3px] border-l-transparent hover:border-l-[var(--surface-navy)]">
+                <tr
+                  key={p.uid}
+                  onClick={() => handleOpenSubmission(p)}
+                  className="h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors border-l-[3px] border-l-transparent hover:border-l-[var(--surface-navy)] cursor-pointer"
+                >
                    <td className="px-[20px]">
                     <Avatar size="sm" name={getMemberName(p)} photoUrl={p.profile_picture_url} />
                   </td>
@@ -153,6 +164,11 @@ export default function AdminApprovalsPage() {
                       )}
                     </div>
                   </td>
+                  <td className="px-[20px]">
+                    <Badge variant={p.status === 'student' ? 'member-type-active' : 'member-type-alumni'} className="capitalize">
+                      {p.status || 'not specified'}
+                    </Badge>
+                  </td>
                   <td className="px-[20px] font-mono text-[14px] text-[var(--text-secondary)]">{p.phone_number || '—'}</td>
                   <td className="px-[20px] font-sans text-[13px] text-[var(--text-secondary)]">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
@@ -162,7 +178,10 @@ export default function AdminApprovalsPage() {
                        <Button 
                          variant="ghost" 
                          className="text-[var(--status-error)] hover:bg-[#FEF2F2] px-[12px] h-[36px]" 
-                         onClick={() => handleReject(p.uid, getMemberName(p))}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleReject(p.uid, getMemberName(p));
+                         }}
                          loading={actionLoading === p.uid}
                          disabled={!!actionLoading}
                        >
@@ -170,7 +189,10 @@ export default function AdminApprovalsPage() {
                        </Button>
                        <Button 
                          className="px-[16px] h-[36px]" 
-                         onClick={() => handleApprove(p.uid, getMemberName(p))}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleApprove(p.uid, getMemberName(p));
+                         }}
                          loading={actionLoading === p.uid}
                          disabled={!!actionLoading}
                        >
@@ -211,6 +233,14 @@ export default function AdminApprovalsPage() {
           </Button>
         </div>
       </div>
+
+      {selectedSubmission && (
+        <PendingRegistrationReviewModal
+          isOpen={true}
+          onClose={() => setSelectedSubmission(null)}
+          submission={selectedSubmission}
+        />
+      )}
     </div>
   );
 }

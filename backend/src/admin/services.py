@@ -1,16 +1,103 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, case
 from src.admin.models import Post, Subgroup
 from fastapi import HTTPException, status
 from src.auth.models import Member, Status
-from src.admin.schemas import MemberAdminUpdate
+from src.admin.schemas import MemberAdminUpdate, MemberAdminCreate
+from src.utils.auth import generate_password_hash
 from src.utils.logger import logger
 from uuid import UUID
 
 
 class AdminServices:
+
+    async def create_member_by_admin(
+        self,
+        member_data: MemberAdminCreate,
+        session: AsyncSession
+    ):
+        if member_data.password != member_data.confirm_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Passwords do not match"
+            )
+
+        existing_member_statement = select(Member).where(Member.email == member_data.email.lower())
+        existing_member_result = await session.exec(existing_member_statement)
+        existing_member = existing_member_result.first()
+        if existing_member:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists"
+            )
+
+        new_member = Member(
+            first_name=member_data.first_name,
+            last_name=member_data.last_name,
+            email=member_data.email,
+            title=member_data.title,
+            birth_day=member_data.birth_day,
+            birth_month=member_data.birth_month,
+            phone_number=member_data.phone_number,
+            status=member_data.status,
+            password_hash=generate_password_hash(member_data.password.strip()),
+            email_verified=True,
+            account_approved=True,
+        )
+
+        posts = []
+        if member_data.post_ids is not None:
+            requested_post_ids = list(set(member_data.post_ids))
+            if requested_post_ids:
+                post_statement = select(Post).where(Post.id.in_(requested_post_ids))
+                post_result = await session.exec(post_statement)
+                posts = post_result.all()
+
+                if len(posts) != len(requested_post_ids):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="One or more selected posts do not exist"
+                    )
+
+        subgroups = []
+        if member_data.subgroup_ids is not None:
+            requested_subgroup_ids = list(set(member_data.subgroup_ids))
+            if requested_subgroup_ids:
+                subgroup_statement = select(Subgroup).where(Subgroup.id.in_(requested_subgroup_ids))
+                subgroup_result = await session.exec(subgroup_statement)
+                subgroups = subgroup_result.all()
+
+                if len(subgroups) != len(requested_subgroup_ids):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="One or more selected subgroups do not exist"
+                    )
+
+        if posts:
+            new_member.posts_held = posts
+        if subgroups:
+            new_member.subgroups = subgroups
+
+        try:
+            session.add(new_member)
+            await session.commit()
+            await session.refresh(new_member)
+            return new_member
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A member with this email or phone number already exists"
+            )
+        except Exception:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error"
+            )
 
     async def _get_member_or_404(self, member_uid: UUID, session: AsyncSession) -> Member:
         member = await session.get(Member, member_uid)
@@ -28,13 +115,23 @@ class AdminServices:
         limit: int = 25,
         offset: int = 0
     ):
-       
+        filters = [Member.account_approved == False]
 
-
+        cleaned_search = search.strip() if search else None
+        if cleaned_search:
+            search_term = f"%{cleaned_search}%"
+            filters.append(
+                or_(
+                    Member.first_name.ilike(search_term),
+                    Member.last_name.ilike(search_term),
+                    Member.email.ilike(search_term),
+                    Member.phone_number.ilike(search_term)
+                )
+            )
 
         statement = (
             select(Member)
-            .where(Member.account_approved == False)
+            .where(*filters)
             .options(
                 selectinload(Member.subgroups),
                 selectinload(Member.posts_held)
@@ -45,7 +142,7 @@ class AdminServices:
         )
         result = await session.exec(statement)
 
-        count_statement = select(func.count(Member.uid)).where(Member.account_approved == False)
+        count_statement = select(func.count(Member.uid)).where(*filters)
         total = (await session.exec(count_statement)).one()
 
         return result.all(), total

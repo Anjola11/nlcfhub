@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gsap } from 'gsap';
-import { X, Users, Calendar, Phone, Download, User, Copy, Link, Pencil } from 'lucide-react';
+import { X, Users, Calendar, Phone, User, Copy, Pencil, Eye } from 'lucide-react';
 import { flashGold } from '../../lib/gsap';
 import { Badge } from '../ui/Badge';
 import { useToast } from '../../hooks/useToast';
+import { FullscreenImageViewer } from '../ui/FullscreenImageViewer';
 
 export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const backdropRef = useRef(null);
@@ -14,6 +15,7 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const { addToast } = useToast();
   
   const scopeRef = useRef(null);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -69,7 +71,7 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
     addToast({ message: successMessage, type: 'success' });
   };
 
-  const downloadPhotoUrl = member.download_birthday_picture_url || member.download_profile_picture_url || member.photoUrl;
+  const fullViewPhotoUrl = member.birthday_picture_url || member.photoUrl;
 
   if (!isOpen || !member) return null;
 
@@ -100,6 +102,16 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
               {member.daysUntil === 0 ? "TODAY 🎂" : `In ${member.daysUntil} days`}
             </Badge>
           </div>
+
+          {fullViewPhotoUrl && (
+            <button
+              onClick={() => setIsImageViewerOpen(true)}
+              className="absolute top-4 right-16 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
+              aria-label="View full image"
+            >
+              <Eye size={18} />
+            </button>
+          )}
 
           <button onClick={handleClose} className="absolute top-4 right-4 w-10 h-10 rounded-[12px] bg-[var(--surface-gold)] text-[var(--surface-navy)] flex items-center justify-center hover:opacity-90 transition-opacity z-20 shadow-md">
             <X size={20} />
@@ -136,26 +148,6 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
 
         <div className="p-[24px] pt-[16px]">
           <div className="grid grid-cols-2 gap-[10px] mb-4">
-            {downloadPhotoUrl ? (
-              <a
-                href={downloadPhotoUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--surface-navy)] text-white disabled:opacity-40 transition-colors"
-              >
-                <Download size={18} />
-                Download Photo
-              </a>
-            ) : (
-              <button
-                className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--surface-navy)] text-white disabled:opacity-40 transition-colors"
-                disabled
-              >
-                <Download size={18} />
-                No photo
-              </button>
-            )}
             <button 
               className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors"
               onClick={(e) => copyToClipboard(member.full_name, e, "Name copied")}
@@ -163,7 +155,7 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
               <User size={18} /> Copy Name
             </button>
             <button 
-              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors col-span-2"
+              className="btn-grid-item h-[48px] rounded-full font-sans font-semibold text-[14px] flex items-center justify-center gap-2 bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--border-focus)] transition-colors"
               onClick={(e) => copyToClipboard(`Happy Birthday ${member.full_name}! | ${member.subgroup} | ${member.member_type === 'active' ? 'Member' : 'Alumni'}`, e, "Caption copied")}
             >
               <Copy size={18} /> Copy Caption
@@ -174,6 +166,13 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
           </button>
         </div>
       </div>
+
+      <FullscreenImageViewer
+        isOpen={isImageViewerOpen}
+        imageUrl={fullViewPhotoUrl}
+        alt={member.full_name}
+        onClose={() => setIsImageViewerOpen(false)}
+      />
     </div>,
     document.body
   );

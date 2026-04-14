@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status, Query, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from src.admin.services import AdminServices
-from src.admin.schemas import MemberAdminUpdate
+from src.admin.schemas import MemberAdminUpdate, MemberAdminCreate
 from src.emailServices.services import EmailServices
 from src.utils.dependencies import require_admin
 from src.utils.logger import logger
@@ -38,11 +38,21 @@ def serialize_pending_member(member):
         mode="json",
         include={
             "uid", "first_name", "last_name", "fullname", "email",
-            "phone_number", "account_approved", "created_at", "profile_picture_url"
+            "phone_number", "title", "status", "birth_month", "birth_day",
+            "account_approved", "created_at", "profile_picture_url", "birthday_picture_url"
         }
     )
-    payload["subgroups"] = serialize_subgroup_links(member.subgroups)
-    payload["posts_held"] = serialize_post_links(member.posts_held)
+    subgroup_links = serialize_subgroup_links(member.subgroups)
+    post_links = serialize_post_links(member.posts_held)
+
+    payload["subgroups"] = subgroup_links
+    payload["posts_held"] = post_links
+
+    # Flattened fields make table/card rendering straightforward in the frontend.
+    payload["subgroup_names"] = [s["name"] for s in subgroup_links]
+    payload["post_names"] = [p["name"] for p in post_links]
+    payload["subgroup"] = ", ".join(payload["subgroup_names"]) if payload["subgroup_names"] else ""
+    payload["post_held"] = ", ".join(payload["post_names"]) if payload["post_names"] else ""
     return payload
 
 def serialize_approved_member(member):
@@ -64,8 +74,7 @@ def serialize_full_member(member):
         include={
             "uid", "first_name", "last_name", "fullname", "email", "email_verified",
             "title", "birth_month", "birth_day", "phone_number", "status",
-            "account_approved", "created_at", "profile_picture_url", "birthday_picture_url",
-            "download_birthday_picture_url", "download_profile_picture_url"
+            "account_approved", "created_at", "profile_picture_url", "birthday_picture_url"
         }
     )
     payload["posts_held"] = serialize_post_links(member.posts_held)
@@ -104,14 +113,16 @@ async def get_subgroups(
 
 @admin_router.get('/members/pending', status_code=status.HTTP_200_OK)
 async def get_pending_members(
+    search: str | None = Query(None),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
     admin_services: AdminServices = Depends(get_admin_services)
 ):
-    logger.info(f"Admin fetching pending members, limit={limit}, offset={offset})")
+    logger.info(f"Admin fetching pending members (search={search}, limit={limit}, offset={offset})")
     members, total = await admin_services.get_all_pending_members(
         session,
+        search=search,
         limit=limit,
         offset=offset
     )
@@ -178,6 +189,21 @@ async def get_member_details(
 ):
     member = await admin_services.get_member_details(member_uid, session)
     return {"success": True, "data": serialize_full_member(member)}
+
+
+@admin_router.post('/members', status_code=status.HTTP_201_CREATED)
+async def create_member_by_admin(
+    member_data: MemberAdminCreate,
+    session: AsyncSession = Depends(get_session),
+    admin_services: AdminServices = Depends(get_admin_services)
+):
+    logger.info(f"Admin creating member with email {member_data.email}")
+    member = await admin_services.create_member_by_admin(member_data, session)
+    return {
+        "success": True,
+        "message": "Member created successfully",
+        "data": serialize_full_member(member)
+    }
 
 
 @admin_router.patch('/members/{member_uid}/approve', status_code=status.HTTP_200_OK)
