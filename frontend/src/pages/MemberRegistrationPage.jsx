@@ -44,6 +44,7 @@ export default function MemberRegistrationPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
   const [newUid, setNewUid] = useState(null);
 
   const [subgroups, setSubgroups] = useState([]);
@@ -94,7 +95,10 @@ export default function MemberRegistrationPage() {
 
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0];
-    if (file) setPhotoPreview(URL.createObjectURL(file));
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
   };
 
   useEffect(() => {
@@ -130,9 +134,25 @@ export default function MemberRegistrationPage() {
     setLoading(true);
     try {
       const res = await api.register(formData);
-      if (res && res.data && res.data.uid) {
-         setNewUid(res.data.uid);
+      const uid = res?.data?.uid;
+      
+      if (uid) {
+        setNewUid(uid);
+        
+        // If a photo was selected, upload it now
+        if (photoFile) {
+          try {
+            await api.uploadProfilePicture(uid, photoFile);
+          } catch (uploadErr) {
+            console.error("Failed to upload profile picture:", uploadErr);
+            addToast({ 
+              message: 'Account created, but photo upload failed. You can update it later in your profile.', 
+              type: 'warning' 
+            });
+          }
+        }
       }
+      
       gsap.to(formContentRef.current, { opacity: 0, y: -16, duration: 0.3, onComplete: () => {
         setIsSuccess(true);
       }});
@@ -204,7 +224,10 @@ export default function MemberRegistrationPage() {
                   </div>
                   <button 
                     type="button"
-                    onClick={() => setPhotoPreview(null)}
+                    onClick={() => {
+                      setPhotoPreview(null);
+                      setPhotoFile(null);
+                    }}
                     className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[var(--status-error)] text-white flex items-center justify-center z-10"
                   >
                     <X size={14} />
