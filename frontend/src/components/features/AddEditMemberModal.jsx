@@ -57,6 +57,7 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Original data snapshot (for change comparison)
   const [originalData, setOriginalData] = useState(null);
@@ -166,7 +167,33 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
 
   // Build a list of human-readable changes for the confirmation dialog
   const computeChanges = () => {
-    if (!originalData) return [{ label: 'Action', value: 'Create new member' }];
+    if (!originalData) {
+      return [
+        { label: 'Action', value: 'Create new member' },
+        { label: 'Name', value: `${formData.firstName} ${formData.lastName}`.trim() || '—' },
+        { label: 'Email', value: formData.email || '—' },
+        { label: 'Phone', value: formData.phone || '—' },
+        { label: 'Birthday', value: `${formData.day || '—'}/${formData.month || '—'}` },
+        { label: 'Status', value: formData.status || '—' },
+        { label: 'Title', value: formData.status === 'alumni' ? (formData.title || '—') : 'N/A' },
+        {
+          label: 'Subgroups',
+          value: formData.status === 'alumni'
+            ? 'N/A'
+            : (formData.subgroupIds
+              .map(id => subgroupOptions.find(s => s.value === id)?.name || id)
+              .join(', ') || 'None selected')
+        },
+        {
+          label: 'Posts Held',
+          value: formData.status === 'alumni'
+            ? 'N/A'
+            : (formData.postIds
+              .map(id => postOptions.find(p => p.value === id)?.name || id)
+              .join(', ') || 'None selected')
+        },
+      ];
+    }
     
     const diff = [];
 
@@ -247,8 +274,10 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   };
 
   // Actually sends the data
-  const handleConfirm = () => {
-    setShowConfirm(false);
+  const hasValidationError = changes.some(c => c.label === 'Validation');
+
+  const handleConfirm = async () => {
+    if (hasValidationError || submitting) return;
     if (onSubmit) {
       const payload = isEdit
         ? {
@@ -277,9 +306,16 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
             password: formData.password,
             confirm_password: formData.confirmPassword,
           };
-      onSubmit(payload);
+      try {
+        setSubmitting(true);
+        await onSubmit(payload);
+        onClose();
+      } catch {
+        // onSubmit already handles user-facing error toasts; keep review modal open for retry.
+      } finally {
+        setSubmitting(false);
+      }
     }
-    onClose();
   };
 
   // ── Confirmation view ──────────────────────────────────────────────
@@ -290,12 +326,16 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
         onClose={() => setShowConfirm(false)}
         title="Confirm Changes"
         footer={
-          <>
+          hasValidationError ? (
             <Button variant="secondary" onClick={() => setShowConfirm(false)}>Go Back</Button>
-            <Button onClick={handleConfirm}>
-              <Check size={16} className="mr-1.5" /> Confirm
-            </Button>
-          </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={submitting}>Go Back</Button>
+              <Button onClick={handleConfirm} disabled={submitting}>
+                <Check size={16} className="mr-1.5" /> {submitting ? 'Saving...' : 'Confirm'}
+              </Button>
+            </>
+          )
         }
       >
         <div className="flex flex-col gap-4">

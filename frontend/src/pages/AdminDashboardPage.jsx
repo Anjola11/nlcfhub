@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Gift, Users, GraduationCap, UserPlus, Upload, Bell, RefreshCw, MessageCircle, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { gsap } from 'gsap';
 import { api } from '../lib/api';
@@ -10,6 +10,7 @@ import { useToast } from '../hooks/useToast';
 import { BirthdayCard } from '../components/features/BirthdayCard';
 import { BirthdayProfileModal } from '../components/features/BirthdayProfileModal';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 function StatCard({ label, value, sub, icon: Icon, dark = false }) {
   const counterRef = useRef(null);
@@ -34,8 +35,8 @@ function StatCard({ label, value, sub, icon: Icon, dark = false }) {
       <div className="font-mono text-[12px] uppercase mb-2" style={{ color: dark ? 'rgba(253,251,247,0.5)' : 'var(--text-secondary)' }}>
         {label}
       </div>
-      <div ref={counterRef} className="font-display font-extrabold text-[36px] leading-tight mb-1">
-        0
+      <div ref={counterRef} data-value={value} className="font-display font-extrabold text-[36px] leading-tight mb-1">
+        {value !== undefined ? value : '—'}
       </div>
       <div className="font-sans text-[12px]" style={{ color: dark ? 'rgba(253,251,247,0.4)' : 'var(--text-muted)' }}>
         {sub}
@@ -47,93 +48,73 @@ function StatCard({ label, value, sub, icon: Icon, dark = false }) {
 
 export default function AdminDashboardPage() {
   const bentoRef = useRef(null);
-  const [stats, setStats] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
-  
   const [selectedMember, setSelectedMember] = useState(null);
   const [activeSlide, setActiveSlide] = useState(0);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [birthdaysResult, statsResult, logsResult] = await Promise.allSettled([
-          api.getUpcomingBirthdays(5),
-          api.getStats(),
-          api.getLogs()
-        ]);
+  // Queries
+  const { data: rawBirthdays = [], isLoading: birthdaysLoading } = useQuery({
+    queryKey: ['admin', 'birthdays', 'upcoming'],
+    queryFn: () => api.getUpcomingBirthdays(100, 'month'),
+  });
 
-        const upcomingBirthdayMembers = birthdaysResult.status === 'fulfilled' ? birthdaysResult.value : [];
-        if (birthdaysResult.status === 'rejected') {
-          console.warn('Could not fetch upcoming birthdays:', birthdaysResult.reason);
-        }
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['admin', 'stats'],
+    queryFn: api.getStats,
+  });
 
-        const s = statsResult.status === 'fulfilled'
-          ? statsResult.value
-          : { total_approved: 0, total_students: 0, total_alumni: 0, total_pending: 0 };
-        if (statsResult.status === 'rejected') {
-          console.warn('Could not fetch stats:', statsResult.reason);
-        }
+  const { data: logs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['admin', 'logs'],
+    queryFn: api.getLogs,
+  });
 
-        const l = logsResult.status === 'fulfilled' ? logsResult.value : [];
-        if (logsResult.status === 'rejected') {
-          console.warn('Could not fetch logs:', logsResult.reason);
-        }
+  const loading = birthdaysLoading || statsLoading || logsLoading;
 
-        setStats(s);
-        
-        // Map members to birthday card format
-        const todayAtMidnight = new Date();
-        todayAtMidnight.setHours(0, 0, 0, 0);
+  // Transform member data for birthday cards
+  const members = useMemo(() => {
+    const todayAtMidnight = new Date();
+    todayAtMidnight.setHours(0, 0, 0, 0);
 
-        const mappedM = upcomingBirthdayMembers.map(x => {
-          const nextBd = new Date(todayAtMidnight.getFullYear(), (x.birth_month || 1) - 1, x.birth_day || 1);
-          if (nextBd < todayAtMidnight) {
-             nextBd.setFullYear(todayAtMidnight.getFullYear() + 1);
-          }
-          const daysUntil = Math.ceil((nextBd - todayAtMidnight) / 86400000);
-          
-          return { 
-            ...x, 
-            id: x.uid,
-            full_name: x.fullname || `${x.first_name} ${x.last_name}`,
-            daysUntil,
-            subgroup: x.subgroups?.map(s => s.name).join(', ') || '—',
-            posts: x.posts_held?.map(p => p.name).join(', ') || '',
-            member_type: x.status === 'student' ? 'active' : 'alumni',
-            photoUrl: x.birthday_picture_url || x.profile_picture_url,
-            phone: x.phone_number || '—',
-            birthday: new Date(2000, (x.birth_month || 1) - 1, x.birth_day || 1).toISOString(),
-          };
-        });
-        
-        setMembers(mappedM);
-        setLogs(l);
-        setLoading(false);
-        
-        const ctx = gsap.context(() => {
-          setTimeout(() => {
-            if (bentoRef.current) {
-              staggerReveal(bentoRef.current, ':scope > .bento-cell');
-            }
-          }, 50);
-        });
-        
-        return () => ctx.revert();
-      } catch (err) {
-        console.error('Dashboard load error:', err);
-        setLoading(false);
+    return rawBirthdays.map(x => {
+      const nextBd = new Date(todayAtMidnight.getFullYear(), (x.birth_month || 1) - 1, x.birth_day || 1);
+      if (nextBd < todayAtMidnight) {
+         nextBd.setFullYear(todayAtMidnight.getFullYear() + 1);
       }
-    };
-    
-    loadData();
-  }, []);
+      const daysUntil = Math.ceil((nextBd - todayAtMidnight) / 86400000);
+      
+      return { 
+        ...x, 
+        id: x.uid,
+        full_name: x.fullname || `${x.first_name} ${x.last_name}`,
+        daysUntil,
+        subgroup: x.subgroups?.map(s => s.name).join(', ') || '—',
+        posts: x.posts_held?.map(p => p.name).join(', ') || '',
+        member_type: x.status === 'student' ? 'active' : 'alumni',
+        photoUrl: x.birthday_picture_url || x.profile_picture_url,
+        phone: x.phone_number || '—',
+        birthday: new Date(2000, (x.birth_month || 1) - 1, x.birth_day || 1).toISOString(),
+      };
+    });
+  }, [rawBirthdays]);
+
+  // Dashbord animations
+  useEffect(() => {
+    if (!loading) {
+      const ctx = gsap.context(() => {
+        setTimeout(() => {
+          if (bentoRef.current) {
+            staggerReveal(bentoRef.current, ':scope > .bento-cell');
+          }
+        }, 50);
+      });
+      return () => ctx.revert();
+    }
+  }, [loading]);
 
   const minDays = members.length > 0 ? members[0].daysUntil : null;
   const nextBirthdays = members.filter(m => m.daysUntil === minDays);
   const primaryBirthday = nextBirthdays[activeSlide] || nextBirthdays[0];
+  const monthBirthdays = members;
 
   const quickActions = [
     { icon: UserPlus, label: "Add Member", sub: "Register manually", to: "/console-7x/members" },
@@ -253,7 +234,7 @@ export default function AdminDashboardPage() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <Gift size={40} className="text-[rgba(26,28,59,0.3)] mb-3" />
-                <p className="font-sans text-[14px] text-[rgba(26,28,59,0.6)]">No members registered yet</p>
+                <p className="font-sans text-[14px] text-[rgba(26,28,59,0.6)]">No birthdays remaining this month</p>
               </div>
             )}
           </div>
@@ -268,18 +249,18 @@ export default function AdminDashboardPage() {
           <div className="bento-cell col-span-12 md:col-span-12 lg:col-span-8 bg-[var(--surface-white)] border border-[var(--border-subtle)] rounded-[22px] p-[24px] overflow-hidden">
             <div className="flex justify-between items-center mb-5">
               <h2 className="font-display font-bold text-[20px] text-[var(--text-primary)]">Upcoming Birthdays</h2>
-              <span className="font-sans text-[12px] font-medium bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] px-[12px] py-[4px] rounded-full text-[var(--text-secondary)]">Next 7 days</span>
+              <span className="font-sans text-[12px] font-medium bg-[var(--bg-canvas-dim)] border border-[var(--border-subtle)] px-[12px] py-[4px] rounded-full text-[var(--text-secondary)]">This month</span>
             </div>
             
             <div className="flex gap-3 overflow-x-auto pb-4 -mb-4 scrollbar-hide" style={{ scrollbarWidth: 'none', scrollSnapType: 'x mandatory' }}>
-              {members.length > 0 ? members.filter(m => m.daysUntil <= 7).map(m => (
+              {monthBirthdays.length > 0 ? monthBirthdays.map(m => (
                 <div key={m.id} style={{ scrollSnapAlign: 'start' }}>
                   <BirthdayCard member={m} onClick={() => setSelectedMember(m)} />
                 </div>
               )) : (
                 <div className="w-full py-10 flex flex-col items-center justify-center">
                   <Gift size={40} className="text-[var(--border-subtle)] mb-2" />
-                  <p className="font-sans text-[14px] text-[var(--text-muted)]">No upcoming birthdays</p>
+                  <p className="font-sans text-[14px] text-[var(--text-muted)]">No birthdays remaining this month</p>
                 </div>
               )}
             </div>

@@ -44,8 +44,8 @@ class Member(SQLModel, table=True):
         default_factory=uuid.uuid4,
         primary_key=True
     )
-    first_name: str
-    last_name: str
+    first_name: str = Field(index=True)
+    last_name: str = Field(index=True)
 
     email: EmailStr = Field(unique=True, index=True)
     email_verified: bool = Field(default=False)
@@ -65,7 +65,7 @@ class Member(SQLModel, table=True):
 
     created_at: datetime = Field(
         default_factory=utc_now,
-        sa_column=Column(pg.TIMESTAMP(timezone=True), nullable=False)
+        sa_column=Column(pg.TIMESTAMP(timezone=True), index=True, nullable=False)
     )
 
     #relationships

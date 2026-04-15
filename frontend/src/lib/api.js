@@ -292,6 +292,7 @@ export const api = {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
     if (filters.status) params.append('status', filters.status);
+    if (filters.subgroup_id) params.append('subgroup_id', filters.subgroup_id);
     if (filters.month) params.append('birth_month', filters.month);
     params.append('limit', limit);
     params.append('offset', offset);
@@ -305,8 +306,12 @@ export const api = {
     return json;
   },
 
-  async getUpcomingBirthdays(limit = 5) {
-    const { res, json } = await requestJson(`/api/v1/admin/members/upcoming-birthdays?limit=${limit}`, {
+  async getUpcomingBirthdays(limit = 5, window = 'days') {
+    const params = new URLSearchParams();
+    params.append('limit', limit);
+    params.append('window', window);
+
+    const { res, json } = await requestJson(`/api/v1/admin/members/upcoming-birthdays?${params.toString()}`, {
       scope: 'admin',
     });
 
@@ -388,5 +393,17 @@ export const api = {
 
   async getLogs() {
     return [];
+  },
+
+  async getSubgroups() {
+    const { res, json } = await requestJson('/api/v1/meta/subgroups');
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch subgroups');
+    return json.data;
+  },
+
+  async getPosts() {
+    const { res, json } = await requestJson('/api/v1/meta/posts');
+    if (!res.ok || !json.success) throw new Error(json.detail || json.message || 'Failed to fetch posts');
+    return json.data;
   },
 };

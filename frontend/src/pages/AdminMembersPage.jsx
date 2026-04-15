@@ -10,57 +10,114 @@ import { Button } from '../components/ui/Button';
 import { useToast } from '../hooks/useToast';
 import { gsap } from 'gsap';
 import { flashGold } from '../lib/gsap';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { MemberProfileModal } from '../components/features/MemberProfileModal';
+import { SpinnerLoader } from '../components/ui/SpinnerLoader';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function AdminMembersPage() {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
-
-  // Pagination State
   const [page, setPage] = useState(0);
   const [pageSize] = useState(50);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedSubgroup, setSelectedSubgroup] = useState('All');
 
   const [isAddEditModalOpen, setAddEditModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isCSVModalOpen, setCSVModalOpen] = useState(false);
-  const { addToast } = useToast();
+  const [memberToDelete, setMemberToDelete] = useState(null);
+  const [selectedMemberForProfile, setSelectedMemberForProfile] = useState(null);
 
   const bulkBarRef = useRef(null);
-  
-  const loadMembers = async (currentPage = page, search = debouncedSearch) => {
-    setLoading(true);
-    try {
-      const offset = currentPage * pageSize;
-      const response = await api.getApprovedMembers({ search }, pageSize, offset);
-      const data = response.data || [];
-      const meta = response.meta || {};
-      setMembers(data);
-      setTotal(meta.total || 0);
-      // If we got fewer results than requested, we've hit the end
-      setHasMore((offset + data.length) < (meta.total || 0));
-    } catch (err) {
-      addToast({ message: err.message || 'Failed to load members', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
+  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery.trim());
-      setPage(0);
+      setPage(0); // Reset to first page on new search
     }, 300);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Fetch Subgroups for filter dropdown
+  const { data: subgroups = [] } = useQuery({
+    queryKey: ['subgroups'],
+    queryFn: () => api.getSubgroups()
+  });
+
+  // Fetch Members with React Query
+  const { 
+    data: memberResponse, 
+    isLoading: loading,
+    isFetching,
+    isError,
+    error 
+  } = useQuery({
+    queryKey: ['members', 'approved', page, debouncedSearch, selectedStatus, selectedSubgroup, pageSize],
+    queryFn: () => api.getApprovedMembers({ 
+      search: debouncedSearch, 
+      status: selectedStatus === 'All' ? null : selectedStatus.toLowerCase().replace('members', 'student'),
+      subgroup_id: selectedSubgroup === 'All' ? null : selectedSubgroup
+    }, pageSize, page * pageSize),
+    keepPreviousData: true,
+    staleTime: 5 * 60 * 1000, 
+  });
+
+  // Prefetch next page
   useEffect(() => {
-    loadMembers(page, debouncedSearch);
-  }, [page, debouncedSearch]);
+    if (memberResponse?.meta?.total > (page + 1) * pageSize) {
+      const nextPage = page + 1;
+      queryClient.prefetchQuery({
+        queryKey: ['members', 'approved', nextPage, debouncedSearch, selectedStatus, selectedSubgroup, pageSize],
+        queryFn: () => api.getApprovedMembers({ 
+          search: debouncedSearch,
+          status: selectedStatus === 'All' ? null : selectedStatus.toLowerCase().replace('members', 'student'),
+          subgroup_id: selectedSubgroup === 'All' ? null : selectedSubgroup
+        }, pageSize, nextPage * pageSize),
+      });
+    }
+  }, [memberResponse, page, debouncedSearch, selectedStatus, selectedSubgroup, pageSize, queryClient]);
+
+  const members = memberResponse?.data || [];
+  const total = memberResponse?.meta?.total || 0;
+  const hasMore = (page * pageSize + members.length) < total;
+
+  // Mutations
+  const deleteMutation = useMutation({
+    mutationFn: (uid) => api.deleteMember(uid),
+    onSuccess: (_, variables) => {
+      addToast({ message: 'Member removed successfully', type: 'success' });
+      queryClient.invalidateQueries(['members', 'approved']);
+      setMemberToDelete(null);
+    },
+    onError: (err) => {
+      addToast({ message: err.message || 'Failed to delete member', type: 'error' });
+      setMemberToDelete(null);
+    }
+  });
+
+  const upsertMutation = useMutation({
+    mutationFn: (data) => {
+      if (editingMember) return api.editMember(editingMember.uid, data);
+      return api.createMemberByAdmin(data);
+    },
+    onSuccess: () => {
+      addToast({ 
+        message: editingMember ? 'Member updated successfully' : 'Member added successfully', 
+        type: 'success' 
+      });
+      queryClient.invalidateQueries(['members', 'approved']);
+      setAddEditModalOpen(false);
+      setEditingMember(null);
+    },
+    onError: (err) => {
+      addToast({ message: err.message || 'Failed to save', type: 'error' });
+    }
+  });
 
   useEffect(() => {
     if (selectedRows.length > 0 && bulkBarRef.current) {
@@ -87,29 +144,12 @@ export default function AdminMembersPage() {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   };
 
-  const handleDeleteMember = async (uid, name) => {
-    try {
-      await api.deleteMember(uid);
-      addToast({ message: `${name} has been removed`, type: 'success' });
-      loadMembers(page, debouncedSearch);
-    } catch (err) {
-      addToast({ message: err.message || 'Failed to delete member', type: 'error' });
-    }
+  const handleDeleteMember = (uid, name) => {
+    setMemberToDelete({ uid, name });
   };
 
-  const handleEditSubmit = async (data) => {
-    try {
-      if (editingMember) {
-        await api.editMember(editingMember.uid, data);
-        addToast({ message: 'Member updated successfully', type: 'success' });
-      } else {
-        await api.createMemberByAdmin(data);
-        addToast({ message: 'Member added successfully', type: 'success' });
-      }
-      loadMembers(page, debouncedSearch);
-    } catch (err) {
-      addToast({ message: err.message || 'Failed to save', type: 'error' });
-    }
+  const handleEditSubmit = (data) => {
+    upsertMutation.mutate(data);
   };
 
   return (
@@ -119,6 +159,11 @@ export default function AdminMembersPage() {
         onSearchQueryChange={setSearchQuery} 
         onImportCSV={() => setCSVModalOpen(true)}
         onAddMember={() => { setEditingMember(null); setAddEditModalOpen(true); }}
+        memberType={selectedStatus}
+        onTypeChange={(val) => { setSelectedStatus(val); setPage(0); }}
+        selectedSubgroup={selectedSubgroup}
+        onSubgroupChange={(val) => { setSelectedSubgroup(val); setPage(0); }}
+        subgroups={subgroups}
       />
 
       {selectedRows.length > 0 && (
@@ -137,8 +182,13 @@ export default function AdminMembersPage() {
         </div>
       )}
 
-      <div className="bg-[var(--surface-white)] border border-[var(--border-subtle)] rounded-[22px] overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className={`bg-[var(--surface-white)] border border-[var(--border-subtle)] rounded-[22px] overflow-hidden transition-opacity duration-200 ${isFetching && !loading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
+        <div className="overflow-x-auto relative">
+          {isFetching && !loading && (
+            <div className="absolute inset-x-0 top-0 h-1 bg-[var(--surface-gold)] overflow-hidden z-10">
+              <div className="h-full bg-[var(--surface-navy)] animate-indeterminate-progress"></div>
+            </div>
+          )}
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-[var(--bg-canvas)] border-b border-[var(--border-subtle)]">
@@ -157,20 +207,30 @@ export default function AdminMembersPage() {
               </tr>
             </thead>
             <tbody>
-              {members.length === 0 && !loading ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-24">
+                    <SpinnerLoader size="lg" />
+                  </td>
+                </tr>
+              ) : members.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-16">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
                       <Users size={64} className="mb-4 text-[var(--border-subtle)]" />
-                      <h3 className="font-display font-medium text-[20px] text-[var(--text-secondary)] mb-1">No members yet</h3>
-                      <p className="font-sans text-[14px]">Start by adding the first member or importing a CSV.</p>
-                      <Button className="mt-4" onClick={() => setAddEditModalOpen(true)}>Add Member</Button>
+                      <h3 className="font-display font-medium text-[20px] text-[var(--text-secondary)] mb-1">No members found</h3>
+                      <p className="font-sans text-[14px]">Try adjusting your search or filters.</p>
+                      <Button className="mt-4" onClick={() => { setSearchQuery(''); setSelectedStatus('All'); setSelectedSubgroup('All'); }}>Clear All Filters</Button>
                     </div>
                   </td>
                 </tr>
               ) : members.map((m) => (
-                <tr key={m.uid} className={`h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors ${selectedRows.includes(m.uid) ? 'bg-[rgba(235,183,54,0.08)] border-l-[3px] border-l-[var(--surface-gold)]' : 'border-l-[3px] border-l-transparent'}`}>
-                  <td className="px-[20px]">
+                <tr 
+                  key={m.uid} 
+                  onClick={() => setSelectedMemberForProfile(m)}
+                  className={`h-[72px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-canvas)] transition-colors cursor-pointer ${selectedRows.includes(m.uid) ? 'bg-[rgba(235,183,54,0.08)] border-l-[3px] border-l-[var(--surface-gold)]' : 'border-l-[3px] border-l-transparent'}`}
+                >
+                  <td className="px-[20px]" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" className="w-[16px] h-[16px] accent-[var(--surface-gold)] rounded-[4px]" 
                            checked={selectedRows.includes(m.uid)} 
                            onChange={() => toggleSelectRow(m.uid)} />
@@ -202,7 +262,7 @@ export default function AdminMembersPage() {
                   <td className="px-[20px]">
                     <Badge variant={m.status === 'student' ? 'member-type-active' : 'member-type-alumni'} className="capitalize">{m.status}</Badge>
                   </td>
-                  <td className="px-[20px]">
+                  <td className="px-[20px]" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <button className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-canvas-dim)] transition-all" onClick={() => { setEditingMember(m); setAddEditModalOpen(true); }}>
                         <Pencil size={16} />
@@ -279,6 +339,26 @@ export default function AdminMembersPage() {
         onSubmit={handleEditSubmit}
       />
       <CSVImportModal isOpen={isCSVModalOpen} onClose={() => setCSVModalOpen(false)} />
+      
+      <ConfirmModal 
+        isOpen={!!memberToDelete}
+        onClose={() => setMemberToDelete(null)}
+        onConfirm={() => deleteMutation.mutate(memberToDelete.uid)}
+        loading={deleteMutation.isLoading}
+        title="Delete Member"
+        message={`Are you sure you want to permanently DELETE ${memberToDelete?.name}? This action is irreversible and all profile data will be lost.`}
+        confirmLabel="Delete Permanently"
+      />
+
+      <MemberProfileModal 
+        isOpen={!!selectedMemberForProfile}
+        onClose={() => setSelectedMemberForProfile(null)}
+        member={selectedMemberForProfile}
+        onEdit={(m) => {
+          setEditingMember(m);
+          setAddEditModalOpen(true);
+        }}
+      />
     </div>
   );
 }

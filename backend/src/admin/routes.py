@@ -61,7 +61,7 @@ def serialize_approved_member(member):
         include={
             "uid", "first_name", "last_name", "fullname", "email", "title",
             "birth_month", "birth_day", "phone_number", "status",
-            "account_approved", "created_at", "profile_picture_url"
+            "account_approved", "created_at", "profile_picture_url", "birthday_picture_url"
         }
     )
     payload["posts_held"] = serialize_post_links(member.posts_held)
@@ -141,17 +141,19 @@ async def get_pending_members(
 async def get_approved_members(
     search: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
+    subgroup_id: uuid.UUID | None = Query(None),
     birth_month: int | None = Query(None, ge=1, le=12),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
     admin_services: AdminServices = Depends(get_admin_services)
 ):
-    logger.info(f"Admin fetching approved members (search={search}, status={status_filter}, month={birth_month}, limit={limit}, offset={offset})")
+    logger.info(f"Admin fetching approved members (search={search}, status={status_filter}, subgroup={subgroup_id}, month={birth_month}, limit={limit}, offset={offset})")
     members, total = await admin_services.get_all_approved_members(
         session,
         search=search,
         status_filter=status_filter,
+        subgroup_id=subgroup_id,
         birth_month=birth_month,
         limit=limit,
         offset=offset
@@ -169,12 +171,13 @@ async def get_approved_members(
 
 @admin_router.get('/members/upcoming-birthdays', status_code=status.HTTP_200_OK)
 async def get_upcoming_birthdays(
-    limit: int = Query(5, ge=1, le=20),
+    limit: int = Query(5, ge=1, le=100),
+    window: str = Query("days", pattern="^(days|month)$"),
     session: AsyncSession = Depends(get_session),
     admin_services: AdminServices = Depends(get_admin_services)
 ):
-    logger.info(f"Admin fetching upcoming birthdays (limit={limit})")
-    members = await admin_services.get_upcoming_birthdays(session, limit=limit)
+    logger.info(f"Admin fetching upcoming birthdays (window={window}, limit={limit})")
+    members = await admin_services.get_upcoming_birthdays(session, limit=limit, window=window)
     return {
         "success": True, 
         "data": [serialize_full_member(m) for m in members]

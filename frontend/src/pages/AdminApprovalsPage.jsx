@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ShieldCheck, XCircle, Search, UserCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import { Avatar } from '../components/ui/Avatar';
@@ -9,85 +9,88 @@ import { useToast } from '../hooks/useToast';
 import { gsap } from 'gsap';
 import { staggerReveal } from '../lib/gsap';
 import { PendingRegistrationReviewModal } from '../components/features/PendingRegistrationReviewModal';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { SpinnerLoader } from '../components/ui/SpinnerLoader';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function AdminApprovalsPage() {
-  const [pending, setPending] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize] = useState(25);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [actionLoading, setActionLoading] = useState(null); // uid of member being acted on
   const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const { addToast } = useToast();
+  const [memberToReject, setMemberToReject] = useState(null);
   
   const tableRef = useRef(null);
 
-  const loadPending = async (targetPage = page, targetSearch = debouncedSearch) => {
-    setLoading(true);
-    try {
-      const offset = targetPage * pageSize;
-      const response = await api.getPendingMembers({
-        search: targetSearch,
-        limit: pageSize,
-        offset
-      });
-      const data = response.data || [];
-      const meta = response.meta || {};
-
-      setPending(data);
-      setTotal(meta.total || 0);
-      setHasMore((offset + data.length) < (meta.total || 0));
-
-      setTimeout(() => {
-        if (tableRef.current) staggerReveal(tableRef.current, 'tbody tr');
-      }, 50);
-    } catch (err) {
-      addToast({ message: err.message || 'Failed to load pending members', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim());
       setPage(0);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => {
-    loadPending(page, debouncedSearch);
-  }, [page, debouncedSearch]);
+  // Fetch Pending Members with React Query
+  const { 
+    data: pendingResponse, 
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['members', 'pending', page, debouncedSearch, pageSize],
+    queryFn: async () => {
+      const response = await api.getPendingMembers({
+        search: debouncedSearch,
+        limit: pageSize,
+        offset: page * pageSize
+      });
+      // Trigger animations after data load
+      setTimeout(() => {
+        if (tableRef.current) staggerReveal(tableRef.current, 'tbody tr');
+      }, 50);
+      return response;
+    },
+    keepPreviousData: true,
+  });
 
-  const handleApprove = async (uid, name) => {
-    setActionLoading(uid);
-    try {
-      await api.approveMember(uid);
+  const pending = pendingResponse?.data || [];
+  const total = pendingResponse?.meta?.total || 0;
+  const hasMore = (page * pageSize + pending.length) < total;
+
+  // Mutations
+  const approveMutation = useMutation({
+    mutationFn: ({ uid }) => api.approveMember(uid),
+    onSuccess: (_, { name }) => {
       addToast({ message: `Approved ${name}'s registration`, type: 'success' });
-      loadPending(page, debouncedSearch);
-    } catch (err) {
+      queryClient.invalidateQueries(['members', 'pending']);
+      queryClient.invalidateQueries(['members', 'approved']); // Also invalidate approved list
+    },
+    onError: (err) => {
       addToast({ message: err.message || 'Failed to approve', type: 'error' });
-    } finally {
-      setActionLoading(null);
     }
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ uid }) => api.rejectMember(uid),
+    onSuccess: (_, { name }) => {
+      addToast({ message: `Rejected ${name}'s registration`, type: 'success' });
+      queryClient.invalidateQueries(['members', 'pending']);
+      setMemberToReject(null);
+    },
+    onError: (err) => {
+      addToast({ message: err.message || 'Failed to reject', type: 'error' });
+      setMemberToReject(null);
+    }
+  });
+
+  const handleApprove = (uid, name) => {
+    approveMutation.mutate({ uid, name });
   };
 
-  const handleReject = async (uid, name) => {
-    setActionLoading(uid);
-    try {
-      await api.rejectMember(uid);
-      addToast({ message: `Rejected ${name}'s registration`, type: 'success' });
-      loadPending(page, debouncedSearch);
-    } catch (err) {
-      addToast({ message: err.message || 'Failed to reject', type: 'error' });
-    } finally {
-      setActionLoading(null);
-    }
+  const handleReject = (uid, name) => {
+    setMemberToReject({ uid, name });
   };
 
   const getMemberName = (p) => p.fullname || p.full_name || `${p.first_name} ${p.last_name}`;
@@ -131,13 +134,19 @@ export default function AdminApprovalsPage() {
               </tr>
             </thead>
             <tbody>
-              {pending.length === 0 && !loading ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-16">
+                  <td colSpan={7} className="py-24 text-center">
+                    <SpinnerLoader size="lg" />
+                  </td>
+                </tr>
+              ) : pending.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
                       <ShieldCheck size={64} className="mb-4 text-[var(--border-subtle)]" />
                       <h3 className="font-display font-medium text-[20px] text-[var(--text-secondary)] mb-1">All caught up!</h3>
-                      <p className="font-sans text-[14px]">There are no pending registrations waiting for approval.</p>
+                      <p className="font-sans text-[14px]">No pending member registrations to review.</p>
                     </div>
                   </td>
                 </tr>
@@ -182,8 +191,8 @@ export default function AdminApprovalsPage() {
                            e.stopPropagation();
                            handleReject(p.uid, getMemberName(p));
                          }}
-                         loading={actionLoading === p.uid}
-                         disabled={!!actionLoading}
+                         loading={rejectMutation.isLoading && rejectMutation.variables?.uid === p.uid}
+                         disabled={approveMutation.isLoading || rejectMutation.isLoading}
                        >
                          <XCircle size={14} className="mr-1.5" /> Reject
                        </Button>
@@ -193,8 +202,8 @@ export default function AdminApprovalsPage() {
                            e.stopPropagation();
                            handleApprove(p.uid, getMemberName(p));
                          }}
-                         loading={actionLoading === p.uid}
-                         disabled={!!actionLoading}
+                         loading={approveMutation.isLoading && approveMutation.variables?.uid === p.uid}
+                         disabled={approveMutation.isLoading || rejectMutation.isLoading}
                        >
                          <UserCheck size={14} className="mr-1.5" /> Approve
                        </Button>
@@ -241,6 +250,16 @@ export default function AdminApprovalsPage() {
           submission={selectedSubmission}
         />
       )}
+
+      <ConfirmModal 
+        isOpen={!!memberToReject}
+        onClose={() => setMemberToReject(null)}
+        onConfirm={() => rejectMutation.mutate(memberToReject)}
+        loading={rejectMutation.isLoading}
+        title="Reject Registration"
+        message={`Are you sure you want to REJECT ${memberToReject?.name}'s application? This action cannot be undone.`}
+        confirmLabel="Reject Member"
+      />
     </div>
   );
 }

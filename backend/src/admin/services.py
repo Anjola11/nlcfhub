@@ -1,3 +1,4 @@
+import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func
 from sqlalchemy.exc import IntegrityError
@@ -115,7 +116,7 @@ class AdminServices:
         limit: int = 25,
         offset: int = 0
     ):
-        filters = [Member.account_approved == False]
+        filters = [Member.account_approved == False, Member.email_verified == True]
 
         cleaned_search = search.strip() if search else None
         if cleaned_search:
@@ -140,23 +141,28 @@ class AdminServices:
             .limit(limit)
             .offset(offset)
         )
-        result = await session.exec(statement)
-
         count_statement = select(func.count(Member.uid)).where(*filters)
-        total = (await session.exec(count_statement)).one()
+        members_task = session.exec(statement)
+        count_task = session.exec(count_statement)
+        
+        result, total_results = await asyncio.gather(members_task, count_task)
 
-        return result.all(), total
+        return result.all(), total_results.one()
 
     async def get_all_approved_members(
         self,
         session: AsyncSession,
         search: str | None = None,
         status_filter: str = None,
+        subgroup_id: UUID | None = None,
         birth_month: int = None,
         limit: int = 50,
         offset: int = 0
     ):
         filters = [Member.account_approved == True]
+        
+        if subgroup_id:
+            filters.append(Member.subgroups.any(Subgroup.id == subgroup_id))
 
         cleaned_search = search.strip() if search else None
         if cleaned_search:
@@ -186,14 +192,15 @@ class AdminServices:
             .offset(offset)
         )
 
-        result = await session.exec(statement)
-
         count_statement = select(func.count(Member.uid)).where(*filters)
-        total = (await session.exec(count_statement)).one()
+        members_task = session.exec(statement)
+        count_task = session.exec(count_statement)
+        
+        result, total_results = await asyncio.gather(members_task, count_task)
 
-        return result.all(), total
+        return result.all(), total_results.one()
 
-    async def get_upcoming_birthdays(self, session: AsyncSession, limit: int = 5):
+    async def get_upcoming_birthdays(self, session: AsyncSession, limit: int = 5, window: str = "days"):
         """
         Retrieves upcoming birthdays across the entire database using a SQL case sort
         to handle year wrap-around (e.g., showing January when in December).
@@ -206,27 +213,43 @@ class AdminServices:
         current_month = today.month
         current_day = today.day
 
-        # Weighting logic: happen this year (0) vs. happened already/next year (1)
-        is_next_year = case(
-            (Member.birth_month > current_month, 0),
-            ((Member.birth_month == current_month) & (Member.birth_day >= current_day), 0),
-            else_=1
-        )
+        if window == "month":
+            statement = (
+                select(Member)
+                .where(
+                    Member.account_approved == True,
+                    Member.birth_month == current_month,
+                    Member.birth_day >= current_day,
+                )
+                .options(
+                    selectinload(Member.posts_held),
+                    selectinload(Member.subgroups)
+                )
+                .order_by(Member.birth_day)
+                .limit(limit)
+            )
+        else:
+            # Weighting logic: happen this year (0) vs. happened already/next year (1)
+            is_next_year = case(
+                (Member.birth_month > current_month, 0),
+                ((Member.birth_month == current_month) & (Member.birth_day >= current_day), 0),
+                else_=1
+            )
 
-        statement = (
-            select(Member)
-            .where(Member.account_approved == True)
-            .options(
-                selectinload(Member.posts_held),
-                selectinload(Member.subgroups)
+            statement = (
+                select(Member)
+                .where(Member.account_approved == True)
+                .options(
+                    selectinload(Member.posts_held),
+                    selectinload(Member.subgroups)
+                )
+                .order_by(
+                    is_next_year,
+                    Member.birth_month,
+                    Member.birth_day
+                )
+                .limit(limit)
             )
-            .order_by(
-                is_next_year,
-                Member.birth_month,
-                Member.birth_day
-            )
-            .limit(limit)
-        )
 
         result = await session.exec(statement)
         return result.all()

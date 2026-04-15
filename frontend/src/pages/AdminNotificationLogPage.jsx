@@ -3,22 +3,18 @@ import { api } from '../lib/api';
 import { cn } from '../lib/utils';
 import { ChevronDown, MessageCircle, Mail, ScrollText } from 'lucide-react';
 import { gsap } from 'gsap';
+import { useQuery } from '@tanstack/react-query';
 
 export default function AdminNotificationLogPage() {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
   const [status, setStatus] = useState('All');
   const [channel, setChannel] = useState('All');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  useEffect(() => {
-    api.getLogs().then(data => {
-      setLogs(data);
-      setLoading(false);
-    });
-  }, []);
+  const { data: logs = [], isLoading: loading } = useQuery({
+    queryKey: ['admin', 'logs'],
+    queryFn: api.getLogs,
+  });
 
   const toggleRow = (id) => {
     const el = document.getElementById(`err-${id}`);
