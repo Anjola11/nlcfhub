@@ -205,26 +205,6 @@ export const api = {
     return json.data;
   },
 
-  async getSubgroups() {
-    const { res, json } = await requestJson('/api/v1/meta/subgroups', {
-      method: 'GET',
-      redirectOnAuthFail: false,
-    });
-
-    if (!res.ok) throw new Error('Failed to fetch subgroups');
-    return json;
-  },
-
-  async getPosts() {
-    const { res, json } = await requestJson('/api/v1/meta/posts', {
-      method: 'GET',
-      redirectOnAuthFail: false,
-    });
-
-    if (!res.ok) throw new Error('Failed to fetch posts');
-    return json;
-  },
-
   async updateProfile(id, data) {
     const { res, json } = await requestJson(`/api/v1/members/${id}/update-details`, {
       method: 'PATCH',

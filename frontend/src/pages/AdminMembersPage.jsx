@@ -107,12 +107,10 @@ export default function AdminMembersPage() {
     },
     onSuccess: () => {
       addToast({ 
-        message: editingMember ? 'Member updated successfully' : 'Member added successfully', 
+        message: editingMember ? 'Edit successful' : 'Member added successfully', 
         type: 'success' 
       });
       queryClient.invalidateQueries(['members', 'approved']);
-      setAddEditModalOpen(false);
-      setEditingMember(null);
     },
     onError: (err) => {
       addToast({ message: err.message || 'Failed to save', type: 'error' });
@@ -148,8 +146,8 @@ export default function AdminMembersPage() {
     setMemberToDelete({ uid, name });
   };
 
-  const handleEditSubmit = (data) => {
-    upsertMutation.mutate(data);
+  const handleEditSubmit = async (data) => {
+    return upsertMutation.mutateAsync(data);
   };
 
   return (
@@ -160,7 +158,11 @@ export default function AdminMembersPage() {
         onImportCSV={() => setCSVModalOpen(true)}
         onAddMember={() => { setEditingMember(null); setAddEditModalOpen(true); }}
         memberType={selectedStatus}
-        onTypeChange={(val) => { setSelectedStatus(val); setPage(0); }}
+        onTypeChange={(val) => { 
+          setSelectedStatus(val); 
+          setSelectedSubgroup('All'); 
+          setPage(0); 
+        }}
         selectedSubgroup={selectedSubgroup}
         onSubgroupChange={(val) => { setSelectedSubgroup(val); setPage(0); }}
         subgroups={subgroups}

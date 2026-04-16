@@ -67,12 +67,12 @@ export default function MemberRegistrationPage() {
 
   useEffect(() => {
     // Fetch live metadata
-    api.getSubgroups().then(res => {
-      if(res.success) setSubgroups(res.data.map(s => ({label: s.name, value: s.id})));
+    api.getSubgroups().then(data => {
+      setSubgroups(data.map(s => ({ label: s.name, value: s.id })));
     }).catch(console.error);
 
-    api.getPosts().then(res => {
-      if(res.success) setPosts(res.data.map(p => ({label: p.name, value: p.id})));
+    api.getPosts().then(data => {
+      setPosts(data.map(p => ({ label: p.name, value: p.id })));
     }).catch(console.error);
   }, []);
 

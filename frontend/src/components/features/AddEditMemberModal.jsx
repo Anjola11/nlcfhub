@@ -65,11 +65,11 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
   // Fetch live subgroup/post metadata when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    api.getSubgroups().then(res => {
-      if (res.success) setSubgroupOptions(res.data.map(s => ({ label: s.name, value: s.id, name: s.name })));
+    api.getSubgroups().then(data => {
+      setSubgroupOptions(data.map(s => ({ label: s.name, value: s.id, name: s.name })));
     }).catch(console.error);
-    api.getPosts().then(res => {
-      if (res.success) setPostOptions(res.data.map(p => ({ label: p.name, value: p.id, name: p.name })));
+    api.getPosts().then(data => {
+      setPostOptions(data.map(p => ({ label: p.name, value: p.id, name: p.name })));
     }).catch(console.error);
   }, [isOpen]);
 
@@ -323,7 +323,9 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
     return (
       <Modal
         isOpen={isOpen}
-        onClose={() => setShowConfirm(false)}
+        onClose={() => {
+          if (!submitting) setShowConfirm(false);
+        }}
         title="Confirm Changes"
         footer={
           hasValidationError ? (
@@ -331,8 +333,9 @@ export function AddEditMemberModal({ isOpen, onClose, member = null, onSubmit })
           ) : (
             <>
               <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={submitting}>Go Back</Button>
-              <Button onClick={handleConfirm} disabled={submitting}>
-                <Check size={16} className="mr-1.5" /> {submitting ? 'Saving...' : 'Confirm'}
+              <Button onClick={handleConfirm} loading={submitting} disabled={submitting}>
+                {!submitting && <Check size={16} className="mr-1.5" />}
+                {submitting ? 'Saving...' : 'Confirm'}
               </Button>
             </>
           )
