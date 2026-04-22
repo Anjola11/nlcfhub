@@ -21,3 +21,28 @@ export function daysUntil(dateStr) {
   }
   return Math.ceil((nextBd - today) / 86400000);
 }
+
+export async function downloadImage(imageUrl, filename = 'download.jpg') {
+  if (!imageUrl) return;
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error("Download failed", error);
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}

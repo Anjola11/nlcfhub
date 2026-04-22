@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gsap } from 'gsap';
-import { X, Users, Calendar, Phone, User, Copy, Pencil, Eye } from 'lucide-react';
+import { X, Users, Calendar, Phone, User, Copy, Pencil, Eye, Download } from 'lucide-react';
 import { flashGold } from '../../lib/gsap';
 import { Badge } from '../ui/Badge';
 import { useToast } from '../../hooks/useToast';
 import { FullscreenImageViewer } from '../ui/FullscreenImageViewer';
-
+import { downloadImage } from '../../lib/utils';
 export function BirthdayProfileModal({ isOpen, onClose, member }) {
   const backdropRef = useRef(null);
   const modalPanelRef = useRef(null);
@@ -104,13 +104,25 @@ export function BirthdayProfileModal({ isOpen, onClose, member }) {
           </div>
 
           {fullViewPhotoUrl && (
-            <button
-              onClick={() => setIsImageViewerOpen(true)}
-              className="absolute top-4 right-16 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
-              aria-label="View full image"
-            >
-              <Eye size={18} />
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadImage(fullViewPhotoUrl, `${member.full_name?.replace(/\s+/g, '_')}_Birthday.jpg`);
+                }}
+                className="absolute top-4 right-28 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
+                aria-label="Download image"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                onClick={() => setIsImageViewerOpen(true)}
+                className="absolute top-4 right-16 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
+                aria-label="View full image"
+              >
+                <Eye size={18} />
+              </button>
+            </>
           )}
 
           <button onClick={handleClose} className="absolute top-4 right-4 w-10 h-10 rounded-[12px] bg-[var(--surface-gold)] text-[var(--surface-navy)] flex items-center justify-center hover:opacity-90 transition-opacity z-20 shadow-md">

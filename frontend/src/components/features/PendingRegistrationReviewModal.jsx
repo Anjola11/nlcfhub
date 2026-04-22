@@ -2,10 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gsap } from 'gsap';
-import { X, Mail, Phone, CalendarDays, ClipboardList, Eye } from 'lucide-react';
+import { X, Mail, Phone, CalendarDays, ClipboardList, Eye, Download } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { FullscreenImageViewer } from '../ui/FullscreenImageViewer';
+import { downloadImage } from '../../lib/utils';
 
 function formatBirthday(month, day) {
   if (!month || !day) return 'Not provided';
@@ -108,13 +109,25 @@ export function PendingRegistrationReviewModal({ isOpen, onClose, submission }) 
           </div>
 
           {fullViewPhotoUrl && (
-            <button
-              onClick={() => setIsImageViewerOpen(true)}
-              className="absolute top-4 right-16 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
-              aria-label="View full image"
-            >
-              <Eye size={18} />
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadImage(fullViewPhotoUrl, `${name?.replace(/\s+/g, '_')}_Registration.jpg`);
+                }}
+                className="absolute top-4 right-28 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
+                aria-label="Download image"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                onClick={() => setIsImageViewerOpen(true)}
+                className="absolute top-4 right-16 w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:opacity-95 transition-opacity z-20 shadow-md"
+                aria-label="View full image"
+              >
+                <Eye size={18} />
+              </button>
+            </>
           )}
 
           <button

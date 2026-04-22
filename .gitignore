@@ -80,3 +80,4 @@ dist-ssr
 *.sw?
 
 instruction.md
+aiServices/

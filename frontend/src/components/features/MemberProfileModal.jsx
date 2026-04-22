@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gsap } from 'gsap';
-import { X, Mail, Phone, CalendarDays, ClipboardList, Eye, Pencil, User, Users } from 'lucide-react';
+import { X, Mail, Phone, CalendarDays, ClipboardList, Eye, Pencil, User, Users, Download } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { FullscreenImageViewer } from '../ui/FullscreenImageViewer';
 import { Avatar } from '../ui/Avatar';
+import { downloadImage } from '../../lib/utils';
 
 export function MemberProfileModal({ isOpen, onClose, member, onEdit }) {
   const backdropRef = useRef(null);
@@ -94,13 +95,25 @@ export function MemberProfileModal({ isOpen, onClose, member, onEdit }) {
           {/* Action Buttons */}
           <div className="absolute top-4 right-4 flex gap-2">
             {fullViewPhotoUrl && (
-              <button
-                onClick={() => setIsImageViewerOpen(true)}
-                className="w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:bg-white transition-all shadow-lg active:scale-95"
-                title="View full picture"
-              >
-                <Eye size={18} />
-              </button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadImage(fullViewPhotoUrl, `${name?.replace(/\s+/g, '_')}_Profile.jpg`);
+                  }}
+                  className="w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:bg-white transition-all shadow-lg active:scale-95"
+                  title="Download picture"
+                >
+                  <Download size={18} />
+                </button>
+                <button
+                  onClick={() => setIsImageViewerOpen(true)}
+                  className="w-10 h-10 rounded-[12px] bg-white/90 text-[var(--surface-navy)] flex items-center justify-center hover:bg-white transition-all shadow-lg active:scale-95"
+                  title="View full picture"
+                >
+                  <Eye size={18} />
+                </button>
+              </>
             )}
             <button
               onClick={handleClose}
